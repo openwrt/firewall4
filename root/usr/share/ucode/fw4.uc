@@ -2006,7 +2006,6 @@ return {
 		};
 
 		let family = infer_family(zone.family, [
-			zone.helper, "ct helper",
 			match_subnets, "subnet list"
 		]);
 

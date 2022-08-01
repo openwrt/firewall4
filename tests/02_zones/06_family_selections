@@ -15,7 +15,18 @@ specified or not.
 -- End --
 
 -- File uci/helpers.json --
-{}
+{
+	"helper" : [
+		{
+			"description" : "An example IPv4-only conntrack helper",
+			"family" : "ipv4",
+			"module" : "nf_conntrack_dummy",
+			"name" : "test",
+			"port" : 1234,
+			"proto" : "tcp"
+		}
+	]
+}
 -- End --
 
 -- File uci/firewall.json --
@@ -59,6 +70,14 @@ specified or not.
 			"family": "ipv6",
 			"device": [ "eth0" ],
 			"auto_helper": 0
+		},
+
+		{
+			".description": "Family restrictions of associated ct helpers should not influence zone family selection",
+			"name": "test6",
+			"family": "any",
+			"device": [ "br-lan" ],
+			"helper": [ "test" ]
 		}
 	]
 }
@@ -69,6 +88,15 @@ table inet fw4
 flush table inet fw4
 
 table inet fw4 {
+	#
+	# CT helper definitions
+	#
+
+	ct helper test {
+		type "test" protocol tcp;
+	}
+
+
 	#
 	# Defines
 	#
@@ -87,6 +115,9 @@ table inet fw4 {
 
 	define test5_devices = { "eth0" }
 	define test5_subnets = {  }
+
+	define test6_devices = { "br-lan" }
+	define test6_subnets = {  }
 
 
 	#
@@ -111,6 +142,7 @@ table inet fw4 {
 		meta nfproto ipv6 ip6 saddr 2001:db8:1234::/64 jump input_test3 comment "!fw4: Handle test3 IPv6 input traffic"
 		meta nfproto ipv6 ip6 saddr 2001:db8:1234::/64 jump input_test4 comment "!fw4: Handle test4 IPv6 input traffic"
 		meta nfproto ipv6 iifname "eth0" jump input_test5 comment "!fw4: Handle test5 IPv6 input traffic"
+		iifname "br-lan" jump input_test6 comment "!fw4: Handle test6 IPv4/IPv6 input traffic"
 	}
 
 	chain forward {
@@ -122,6 +154,7 @@ table inet fw4 {
 		meta nfproto ipv6 ip6 saddr 2001:db8:1234::/64 jump forward_test3 comment "!fw4: Handle test3 IPv6 forward traffic"
 		meta nfproto ipv6 ip6 saddr 2001:db8:1234::/64 jump forward_test4 comment "!fw4: Handle test4 IPv6 forward traffic"
 		meta nfproto ipv6 iifname "eth0" jump forward_test5 comment "!fw4: Handle test5 IPv6 forward traffic"
+		iifname "br-lan" jump forward_test6 comment "!fw4: Handle test6 IPv4/IPv6 forward traffic"
 	}
 
 	chain output {
@@ -135,10 +168,12 @@ table inet fw4 {
 		meta nfproto ipv6 ip6 daddr 2001:db8:1234::/64 jump output_test3 comment "!fw4: Handle test3 IPv6 output traffic"
 		meta nfproto ipv6 ip6 daddr 2001:db8:1234::/64 jump output_test4 comment "!fw4: Handle test4 IPv6 output traffic"
 		meta nfproto ipv6 oifname "eth0" jump output_test5 comment "!fw4: Handle test5 IPv6 output traffic"
+		oifname "br-lan" jump output_test6 comment "!fw4: Handle test6 IPv4/IPv6 output traffic"
 	}
 
 	chain prerouting {
 		type filter hook prerouting priority filter; policy accept;
+		iifname "br-lan" jump helper_test6 comment "!fw4: Handle test6 IPv4/IPv6 helper assignment"
 	}
 
 	chain handle_reject {
@@ -244,6 +279,30 @@ table inet fw4 {
 
 	chain drop_to_test5 {
 		meta nfproto ipv6 oifname "eth0" counter drop comment "!fw4: drop test5 IPv6 traffic"
+	}
+
+	chain input_test6 {
+		jump drop_from_test6
+	}
+
+	chain output_test6 {
+		jump drop_to_test6
+	}
+
+	chain forward_test6 {
+		jump drop_to_test6
+	}
+
+	chain helper_test6 {
+		meta nfproto ipv4 meta l4proto tcp tcp dport 1234 ct helper set "test" comment "!fw4: An example IPv4-only conntrack helper"
+	}
+
+	chain drop_from_test6 {
+		iifname "br-lan" counter drop comment "!fw4: drop test6 IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_test6 {
+		oifname "br-lan" counter drop comment "!fw4: drop test6 IPv4/IPv6 traffic"
 	}
 
 
