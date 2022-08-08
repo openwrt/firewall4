@@ -3107,6 +3107,11 @@ return {
 			chain: [ "string" ]
 		});
 
+		if (!inc.enabled) {
+			this.warn_section(data, "is disabled, ignoring section");
+			return;
+		}
+
 		if (inc.type == "script" && !inc.fw4_compatible) {
 			this.warn_section(data, "is not marked as compatible with fw4, ignoring section");
 			this.warn_section(data, "requires 'option fw4_compatible 1' to be considered compatible");
