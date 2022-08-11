@@ -733,6 +733,19 @@ return {
 		this.cursor.foreach("firewall", "include", i => self.parse_include(i));
 
 
+		//
+		// Discover automatic includes
+		//
+
+		if (this.default_option("auto_includes")) {
+			for (let position in [ 'ruleset-pre', 'ruleset-post', 'table-pre', 'table-post', 'chain-pre', 'chain-post' ])
+				for (let chain in (position in [ 'chain-pre', 'chain-post' ]) ? fs.lsdir(`/usr/share/nftables.d/${position}`) : [ null ])
+					for (let path in fs.glob(`/usr/share/nftables.d/${position}/${chain ?? ''}/*.nft`))
+						if (fs.access(path))
+							this.parse_include({ type: 'nftables', position, chain, path });
+		}
+
+
 		if (use_statefile) {
 			let fd = fs.open(STATEFILE, "w");
 
@@ -1876,7 +1889,9 @@ return {
 			custom_chains: [ "bool", null, UNSUPPORTED ],
 			disable_ipv6: [ "bool", null, UNSUPPORTED ],
 			flow_offloading: [ "bool", "0" ],
-			flow_offloading_hw: [ "bool", "0" ]
+			flow_offloading_hw: [ "bool", "0" ],
+
+			auto_includes: [ "bool", "1" ]
 		});
 
 		if (defs.synflood_protect === null)
@@ -3152,6 +3167,9 @@ return {
 			this.warn_section(data, `specifies unreachable path '${path}', ignoring section`);
 			return;
 		}
+
+		if (!data['.name'])
+			this.warn(`Automatically including '${path}'`);
 
 		push(this.state.includes ||= [], { ...inc, path });
 	},

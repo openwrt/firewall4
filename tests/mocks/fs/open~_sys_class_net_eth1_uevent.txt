@@ -1,0 +1,6 @@
+DEVTYPE=dsa
+OF_NAME=port
+OF_FULLNAME=/ethernet@1e100000/mdio-bus/switch@1f/ports/port@1
+OF_COMPATIBLE_N=0
+INTERFACE=eth1
+IFINDEX=4
