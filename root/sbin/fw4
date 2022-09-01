@@ -108,8 +108,17 @@ case "$1" in
 		flush
 	;;
 	restart)
+		QUIET=1 print | nft ${VERBOSE} -c -f $STDIN || die "The rendered ruleset contains errors, not doing firewall restart."
 		stop || rm -f $STATE
 		start
+	;;
+	check)
+		if [ -n "$QUIET" ]; then
+			exec 1>/dev/null
+			exec 2>/dev/null
+		fi
+
+		print | nft ${VERBOSE} -c -f $STDIN && echo "Ruleset passes nftables check."
 	;;
 	print)
 		print
@@ -138,6 +147,12 @@ Usage:
   $0 [-q] print
 
     Print the rendered ruleset.
+
+
+  $0 [-q] check
+
+    Test the rendered ruleset using nftables' check mode without
+    applying it to the running system.
 
 
   $0 [-q] network {net}
