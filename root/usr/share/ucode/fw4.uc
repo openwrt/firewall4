@@ -740,7 +740,7 @@ return {
 		if (this.default_option("auto_includes")) {
 			for (let position in [ 'ruleset-pre', 'ruleset-post', 'table-pre', 'table-post', 'chain-pre', 'chain-post' ])
 				for (let chain in (position in [ 'chain-pre', 'chain-post' ]) ? fs.lsdir(`/usr/share/nftables.d/${position}`) : [ null ])
-					for (let path in fs.glob(`/usr/share/nftables.d/${position}/${chain ?? ''}/*.nft`))
+					for (let path in fs.glob(`/usr/share/nftables.d/${position}${chain ? `/${chain}` : ''}/*.nft`))
 						if (fs.access(path))
 							this.parse_include({ type: 'nftables', position, chain, path });
 		}
