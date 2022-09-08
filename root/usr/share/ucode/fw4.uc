@@ -2973,6 +2973,9 @@ return {
 
 			mark: [ "mark" ],
 
+			counter: [ "bool", "1" ],
+			log: [ "string" ],
+
 			target: [ "target", "masquerade" ]
 		});
 
