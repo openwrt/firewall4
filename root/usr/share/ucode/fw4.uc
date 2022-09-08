@@ -541,7 +541,7 @@ return {
 			for (let ifc in ifaces.interface) {
 				let net = {
 					up: ifc.up,
-					device: ifc.l3_device,
+					device: ifc.l3_device ?? ifc.device,
 					physdev: ifc.device,
 					zone: ifc.data?.zone
 				};
@@ -589,7 +589,7 @@ return {
 							...rulespec,
 
 							name: (rulespec.type != 'ipset') ? `ubus:${ifc.interface}[${ifc.proto}] ${rulespec.type || 'rule'} ${n}` : rulespec.name,
-							device: rulespec.device || ifc.l3_device
+							device: rulespec.device ?? ifc.l3_device ?? ifc.device
 						});
 
 						n++;
