@@ -266,9 +266,9 @@ table inet fw4 {
 
 	chain srcnat {
 		type nat hook postrouting priority srcnat; policy accept;
-		meta nfproto ipv4 masquerade comment "!fw4: NAT #3"
-		ip6 saddr fc00::/7 masquerade comment "!fw4: NAT #4"
-		masquerade comment "!fw4: NAT #6"
+		meta nfproto ipv4 counter masquerade comment "!fw4: NAT #3"
+		ip6 saddr fc00::/7 counter masquerade comment "!fw4: NAT #4"
+		counter masquerade comment "!fw4: NAT #6"
 		meta nfproto ipv4 ip daddr 192.168.1.0/24 jump srcnat_ipv4only comment "!fw4: Handle ipv4only IPv4 srcnat traffic"
 	}
 
@@ -276,7 +276,7 @@ table inet fw4 {
 	}
 
 	chain srcnat_ipv4only {
-		meta nfproto ipv4 masquerade comment "!fw4: NAT #5"
+		meta nfproto ipv4 counter masquerade comment "!fw4: NAT #5"
 	}
 
 

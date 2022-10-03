@@ -229,10 +229,10 @@ table inet fw4 {
 [call] ctx.call object <network.interface> method <dump> args <null>
 [call] ctx.call object <service> method <get_data> args <{ "type": "firewall" }>
 [call] fs.open path </proc/version> mode <r>
-[call] fs.glob pattern </usr/share/nftables.d/ruleset-pre//*.nft>
-[call] fs.glob pattern </usr/share/nftables.d/ruleset-post//*.nft>
-[call] fs.glob pattern </usr/share/nftables.d/table-pre//*.nft>
-[call] fs.glob pattern </usr/share/nftables.d/table-post//*.nft>
+[call] fs.glob pattern </usr/share/nftables.d/ruleset-pre/*.nft>
+[call] fs.glob pattern </usr/share/nftables.d/ruleset-post/*.nft>
+[call] fs.glob pattern </usr/share/nftables.d/table-pre/*.nft>
+[call] fs.glob pattern </usr/share/nftables.d/table-post/*.nft>
 [call] fs.lsdir path </usr/share/nftables.d/chain-pre>
 [call] fs.lsdir path </usr/share/nftables.d/chain-post>
 [call] fs.popen cmdline </usr/sbin/nft --terse --json list flowtables inet> mode <r>
