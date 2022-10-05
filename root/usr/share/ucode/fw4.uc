@@ -2295,7 +2295,7 @@ return {
 
 		switch (this.parse_bool(rule.log)) {
 		case true:
-			rule.log = rule.name;
+			rule.log = `${rule.name}: `;
 			break;
 
 		case false:
@@ -2595,7 +2595,7 @@ return {
 
 		switch (this.parse_bool(redir.log)) {
 		case true:
-			redir.log = redir.name;
+			redir.log = `${redir.name}: `;
 			break;
 
 		case false:
@@ -3014,6 +3014,15 @@ return {
 		if (snat.snat_ip && length(filter(snat.snat_ip.addrs, a => a.bits == -1 || a.invert))) {
 			this.warn_section(data, "must not use inversion or non-contiguous masks in 'snat_ip', ignoring section");
 			return;
+		}
+
+		switch (this.parse_bool(snat.log)) {
+		case true:
+			snat.log = `${snat.name}: `;
+			break;
+
+		case false:
+			delete snat.log;
 		}
 
 		let add_rule = (family, proto, saddrs, daddrs, raddrs, sport, dport, rport, snat) => {
