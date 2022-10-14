@@ -18,6 +18,9 @@ function reload_sets() {
 	    sets = fw4.check_set_types();
 
 	for (let set in state.ipsets) {
+		if (!set.loadfile && !length(set.entries))
+			continue;
+
 		if (!exists(sets, set.name)) {
 			warn(`Named set '${set.name}' does not exist - do you need to restart the firewall?\n`);
 			continue;
@@ -40,7 +43,9 @@ function reload_sets() {
 		print(`flush set inet fw4 ${set.name}\n`);
 
 		map(set.entries, printer);
-		fw4.parse_setfile(set, printer);
+
+		if (set.loadfile)
+			fw4.parse_setfile(set, printer);
 
 		if (!first)
 			print("}\n\n");
