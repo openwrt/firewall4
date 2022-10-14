@@ -78,12 +78,12 @@
 		(rule.set_xmark.mask == 0xFFFFFFFF)
 			? fw4.hex(rule.set_xmark.mark)
 			: (rule.set_xmark.mark == 0)
-				? 'mark and ' + fw4.hex(~rule.set_xmark.mask & 0xFFFFFFFF)
+				? `mark and ${fw4.hex(~rule.set_xmark.mask & 0xFFFFFFFF)}`
 				: (rule.set_xmark.mark == rule.set_xmark.mask)
-					? 'mark or ' + fw4.hex(rule.set_xmark.mark)
+					? `mark or ${fw4.hex(rule.set_xmark.mark)}`
 					: (rule.set_xmark.mask == 0)
-						? 'mark xor ' + fw4.hex(rule.set_xmark.mark)
-						: 'mark and ' + fw4.hex(~r.set_xmark.mask & 0xFFFFFFFF) + ' xor ' + fw4.hex(r.set_xmark.mark)
+						? `mark xor ${fw4.hex(rule.set_xmark.mark)}`
+						: `mark and ${fw4.hex(~rule.set_xmark.mask & 0xFFFFFFFF)} xor ${fw4.hex(rule.set_xmark.mark)}`
 	}} {%+
    elif (rule.target == "dscp"): -%}
 	{{ fw4.ipproto(rule.family) }} dscp set {{ fw4.hex(rule.set_dscp.dscp) }} {%+

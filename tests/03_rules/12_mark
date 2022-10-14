@@ -1,0 +1,184 @@
+Testing various MARK rules.
+
+-- Testcase --
+{%
+	include("./root/usr/share/firewall4/main.uc", {
+		getenv: function(varname) {
+			switch (varname) {
+			case 'ACTION':
+				return 'print';
+			}
+		}
+	})
+%}
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{
+	"rule": [
+		{
+			".description": "Test setting mark",
+			"name": "Mark rule #1",
+			"proto": "all",
+			"src": "*",
+			"target": "MARK",
+			"set_mark": "0xaa"
+		},
+		{
+			".description": "Test setting mark with mask",
+			"name": "Mark rule #2",
+			"proto": "all",
+			"src": "*",
+			"target": "MARK",
+			"set_mark": "0xab/0xff00"
+		},
+		{
+			".description": "Test setting xor mark",
+			"name": "Mark rule #3",
+			"proto": "all",
+			"src": "*",
+			"target": "MARK",
+			"set_xmark": "0xac"
+		},
+		{
+			".description": "Test setting xor mark with mask",
+			"name": "Mark rule #4",
+			"proto": "all",
+			"src": "*",
+			"target": "MARK",
+			"set_xmark": "0xad/0xff00"
+		},
+		{
+			".description": "Test ANDing bits (set xmark 0/~bits)",
+			"name": "Mark rule #5",
+			"proto": "all",
+			"src": "*",
+			"target": "MARK",
+			"set_xmark": "0/0xffffff51"
+		},
+		{
+			".description": "Test ORing bits (set xmark bits/bits)",
+			"name": "Mark rule #6",
+			"proto": "all",
+			"src": "*",
+			"target": "MARK",
+			"set_xmark": "0xaf/0xaf"
+		}
+	]
+}
+-- End --
+
+-- Expect stdout --
+table inet fw4
+flush table inet fw4
+
+table inet fw4 {
+	#
+	# Defines
+	#
+
+
+	#
+	# User includes
+	#
+
+	include "/etc/nftables.d/*.nft"
+
+
+	#
+	# Filter rules
+	#
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
+
+		ct state established,related accept comment "!fw4: Allow inbound established and related flows"
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		ct state established,related accept comment "!fw4: Allow forwarded established and related flows"
+	}
+
+	chain output {
+		type filter hook output priority filter; policy drop;
+
+		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
+
+		ct state established,related accept comment "!fw4: Allow outbound established and related flows"
+	}
+
+	chain prerouting {
+		type filter hook prerouting priority filter; policy accept;
+	}
+
+	chain handle_reject {
+		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
+		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
+	}
+
+
+	#
+	# NAT rules
+	#
+
+	chain dstnat {
+		type nat hook prerouting priority dstnat; policy accept;
+	}
+
+	chain srcnat {
+		type nat hook postrouting priority srcnat; policy accept;
+	}
+
+
+	#
+	# Raw rules (notrack)
+	#
+
+	chain raw_prerouting {
+		type filter hook prerouting priority raw; policy accept;
+	}
+
+	chain raw_output {
+		type filter hook output priority raw; policy accept;
+	}
+
+
+	#
+	# Mangle rules
+	#
+
+	chain mangle_prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+	}
+
+	chain mangle_postrouting {
+		type filter hook postrouting priority mangle; policy accept;
+	}
+
+	chain mangle_input {
+		type filter hook input priority mangle; policy accept;
+		counter meta mark set 0xaa comment "!fw4: Mark rule #1"
+		counter meta mark set mark and 0xffff0054 xor 0xab comment "!fw4: Mark rule #2"
+		counter meta mark set 0xac comment "!fw4: Mark rule #3"
+		counter meta mark set mark and 0xffff00ff xor 0xad comment "!fw4: Mark rule #4"
+		counter meta mark set mark and 0xae comment "!fw4: Mark rule #5"
+		counter meta mark set mark or 0xaf comment "!fw4: Mark rule #6"
+	}
+
+	chain mangle_output {
+		type route hook output priority mangle; policy accept;
+	}
+
+	chain mangle_forward {
+		type filter hook forward priority mangle; policy accept;
+	}
+}
+-- End --
