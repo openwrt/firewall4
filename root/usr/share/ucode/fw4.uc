@@ -1785,9 +1785,9 @@ return {
 			return;
 		}
 
-		let line = null, count = 0;
+		let count = 0;
 
-		while ((line = fd.read("line")) !== "") {
+		for (let line = fd.read("line"); length(line); line = fd.read("line")) {
 			line = trim(line);
 
 			if (length(line) == 0 || ord(line) == 35)
