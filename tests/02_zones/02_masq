@@ -151,6 +151,7 @@ table inet fw4 {
 	}
 
 	chain accept_to_test1 {
+		meta nfproto ipv4 oifname "zone1" ct state invalid counter drop comment "!fw4: Prevent NAT leakage"
 		oifname "zone1" counter accept comment "!fw4: accept test1 IPv4/IPv6 traffic"
 	}
 

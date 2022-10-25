@@ -213,6 +213,7 @@ table inet fw4 {
 	}
 
 	chain accept_to_wan {
+		meta nfproto ipv4 oifname "pppoe-wan" ct state invalid counter drop comment "!fw4: Prevent NAT leakage"
 		oifname "pppoe-wan" counter accept comment "!fw4: accept wan IPv4/IPv6 traffic"
 	}
 
