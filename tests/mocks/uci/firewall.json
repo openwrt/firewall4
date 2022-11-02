@@ -3,7 +3,7 @@
 		"flow_offloading": "1",
 		"flow_offloading_hw": "1",
 		"forward": "REJECT",
-		"input": "ACCEPT",
+		"input": "REJECT",
 		"output": "ACCEPT",
 		"syn_flood": "1",
 		"unknown_defaults_option": "foo"
