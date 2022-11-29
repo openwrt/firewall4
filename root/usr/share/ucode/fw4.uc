@@ -2305,7 +2305,7 @@ return {
 		let ipset;
 
 		if (rule.ipset) {
-			ipset = filter(this.state.ipsets, s => (s.name == rule.ipset.name))[0];
+			ipset = filter(this.state.ipsets, s => (s.name == rule.ipset.name))?.[0];
 
 			if (!ipset) {
 				this.warn_section(data, `references unknown set '${rule.ipset.name}'`);
@@ -2605,7 +2605,7 @@ return {
 		let ipset;
 
 		if (redir.ipset) {
-			ipset = filter(this.state.ipsets, s => (s.name == redir.ipset.name))[0];
+			ipset = filter(this.state.ipsets, s => (s.name == redir.ipset.name))?.[0];
 
 			if (!ipset) {
 				this.warn_section(data, `references unknown set '${redir.ipset.name}'`);
