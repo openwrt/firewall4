@@ -1,0 +1,248 @@
+Test matching an ipset in rules.
+
+-- Testcase --
+{%
+	include("./root/usr/share/firewall4/main.uc", {
+		getenv: function(varname) {
+			switch (varname) {
+			case 'ACTION':
+				return 'print';
+			}
+		}
+	})
+%}
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File fs/open~_proc_version.txt --
+Linux version 5.10.113 (jow@j7) (mipsel-openwrt-linux-musl-gcc (OpenWrt GCC 11.2.0 r17858+262-2c3e8bed3f) 11.2.0, GNU ld (GNU Binutils) 2.37) #0 SMP Tue May 17 19:05:07 2022
+-- End --
+
+-- File uci/firewall.json --
+{
+	"ipset": [
+		{
+			"name": "test-set-1",
+			"comment": "Test set #1 with traffic direction in type declaration",
+			"match": [ "src_ip", "dest_port" ],
+			"entry": [
+				"1.2.3.4 80",
+				"5.6.7.8 22"
+			]
+		},
+		{
+			"name": "test-set-2",
+			"comment": "Test set #2 with unspecified traffic direction",
+			"match": [ "ip", "port" ],
+			"entry": [
+				"1.2.3.4 80",
+				"5.6.7.8 22"
+			]
+		},
+		{
+			"name": "test-set-3",
+			"comment": "Test set #3 with IPv6 addresses",
+			"family": "IPv6",
+			"match": [ "net", "net", "port" ],
+			"entry": [
+				"db80:1234:4567::1/64 db80:1234:abcd::1/64 80",
+				"db80:8765:aaaa::1/64 db80:8765:ffff::1/64 22",
+				"db80:1:2:3:4:0:0:1 0:0:0:0:0:0:0:0/0 443",
+			]
+		}
+	],
+	"rule": [
+		{
+			"name": "Rule using test set #1",
+			"src": "*",
+			"dest": "*",
+			"proto": "tcp",
+			"ipset": "test-set-1"
+		},
+		{
+			"name": "Rule using test set #2, match direction should default to 'source'",
+			"src": "*",
+			"dest": "*",
+			"proto": "tcp",
+			"ipset": "test-set-2"
+		},
+		{
+			"name": "Rule using test set #1, overriding match direction",
+			"src": "*",
+			"dest": "*",
+			"proto": "tcp",
+			"ipset": "test-set-1 dst src"
+		},
+		{
+			"name": "Rule using test set #2, specifiying match direction",
+			"src": "*",
+			"dest": "*",
+			"proto": "tcp",
+			"ipset": "test-set-2 dst dst"
+		},
+		{
+			"name": "Rule using test set #1, overriding direction and inverting match",
+			"src": "*",
+			"dest": "*",
+			"proto": "tcp",
+			"ipset": "!test-set-1 dst src"
+		},
+		{
+			"name": "Rule using test set #3 with alternative direction notation, should inherit IPv6 family",
+			"src": "*",
+			"dest": "*",
+			"proto": "tcp",
+			"ipset": "test-set-3 src,dest,dest"
+		},
+	]
+}
+-- End --
+
+-- Expect stdout --
+table inet fw4
+flush table inet fw4
+
+table inet fw4 {
+	#
+	# Set definitions
+	#
+
+	set test-set-1 {
+		comment "Test set #1 with traffic direction in type declaration"
+		type ipv4_addr . inet_service
+		elements = {
+			1.2.3.4 . 80,
+			5.6.7.8 . 22,
+		}
+	}
+
+	set test-set-2 {
+		comment "Test set #2 with unspecified traffic direction"
+		type ipv4_addr . inet_service
+		elements = {
+			1.2.3.4 . 80,
+			5.6.7.8 . 22,
+		}
+	}
+
+	set test-set-3 {
+		comment "Test set #3 with IPv6 addresses"
+		type ipv6_addr . ipv6_addr . inet_service
+		auto-merge
+		flags interval
+		elements = {
+			db80:1234:4567::1/64 . db80:1234:abcd::1/64 . 80,
+			db80:8765:aaaa::1/64 . db80:8765:ffff::1/64 . 22,
+			db80:1:2:3:4::1/128 . ::/0 . 443,
+		}
+	}
+
+
+	#
+	# Defines
+	#
+
+
+	#
+	# User includes
+	#
+
+	include "/etc/nftables.d/*.nft"
+
+
+	#
+	# Filter rules
+	#
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
+
+		ct state established,related accept comment "!fw4: Allow inbound established and related flows"
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		ct state established,related accept comment "!fw4: Allow forwarded established and related flows"
+		meta nfproto ipv4 meta l4proto tcp ip saddr . tcp dport @test-set-1 counter comment "!fw4: Rule using test set #1"
+		meta nfproto ipv4 meta l4proto tcp ip saddr . tcp sport @test-set-2 counter comment "!fw4: Rule using test set #2, match direction should default to 'source'"
+		meta nfproto ipv4 meta l4proto tcp ip daddr . tcp sport @test-set-1 counter comment "!fw4: Rule using test set #1, overriding match direction"
+		meta nfproto ipv4 meta l4proto tcp ip daddr . tcp dport @test-set-2 counter comment "!fw4: Rule using test set #2, specifiying match direction"
+		meta nfproto ipv4 meta l4proto tcp ip daddr . tcp sport != @test-set-1 counter comment "!fw4: Rule using test set #1, overriding direction and inverting match"
+		meta nfproto ipv6 meta l4proto tcp ip6 saddr . ip6 daddr . tcp dport @test-set-3 counter comment "!fw4: Rule using test set #3 with alternative direction notation, should inherit IPv6 family"
+	}
+
+	chain output {
+		type filter hook output priority filter; policy drop;
+
+		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
+
+		ct state established,related accept comment "!fw4: Allow outbound established and related flows"
+	}
+
+	chain prerouting {
+		type filter hook prerouting priority filter; policy accept;
+	}
+
+	chain handle_reject {
+		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
+		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
+	}
+
+
+	#
+	# NAT rules
+	#
+
+	chain dstnat {
+		type nat hook prerouting priority dstnat; policy accept;
+	}
+
+	chain srcnat {
+		type nat hook postrouting priority srcnat; policy accept;
+	}
+
+
+	#
+	# Raw rules (notrack)
+	#
+
+	chain raw_prerouting {
+		type filter hook prerouting priority raw; policy accept;
+	}
+
+	chain raw_output {
+		type filter hook output priority raw; policy accept;
+	}
+
+
+	#
+	# Mangle rules
+	#
+
+	chain mangle_prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+	}
+
+	chain mangle_postrouting {
+		type filter hook postrouting priority mangle; policy accept;
+	}
+
+	chain mangle_input {
+		type filter hook input priority mangle; policy accept;
+	}
+
+	chain mangle_output {
+		type route hook output priority mangle; policy accept;
+	}
+
+	chain mangle_forward {
+		type filter hook forward priority mangle; policy accept;
+	}
+}
+-- End --

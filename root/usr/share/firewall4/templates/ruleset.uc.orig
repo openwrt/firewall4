@@ -49,9 +49,6 @@ table inet fw4 {
 
 {%  for (let set in defined_ipsets): %}
 	set {{ set.name }} {
-{%   if (set.comment): %}
-		comment {{ fw4.quote(set.comment, true) }}
-{%   endif %}
 		type {{ fw4.concat(set.types) }}
 {%   if (set.maxelem > 0): %}
 		size {{ set.maxelem }}
@@ -243,9 +240,6 @@ table inet fw4 {
 {%  endif %}
 {%  fw4.includes('chain-append', `forward_${zone.name}`) %}
 		jump {{ zone.forward }}_to_{{ zone.name }}
-{%  if (fw4.forward_policy() != "accept" && (zone.log & 1)): %}
-		log prefix "{{ fw4.forward_policy() }} {{ zone.name }} forward: "
-{%  endif %}
 	}
 
 {%  if (zone.dflags.helper): %}
@@ -268,9 +262,6 @@ table inet fw4 {
 {%   if (zone.dflags[verdict]): %}
 	chain {{ verdict }}_to_{{ zone.name }} {
 {%   for (let rule in zone.match_rules): %}
-{%     if (verdict == "accept" && (zone.masq || zone.masq6) && !zone.masq_allow_invalid): %}
-		{%+ include("zone-drop-invalid.uc", { fw4, zone, rule }) %}
-{%     endif %}
 		{%+ include("zone-verdict.uc", { fw4, zone, rule, egress: true, verdict }) %}
 {%   endfor %}
 	}

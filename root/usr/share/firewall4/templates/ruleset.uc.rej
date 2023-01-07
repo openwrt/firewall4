@@ -1,0 +1,12 @@
+--- root/usr/share/firewall4/templates/ruleset.uc
++++ root/usr/share/firewall4/templates/ruleset.uc
+@@ -240,6 +240,9 @@ table inet fw4 {
+ {%  endif %}
+ {%  fw4.includes('chain-append', `forward_${zone.name}`) %}
+                jump {{ zone.forward }}_to_{{ zone.name }}
++{%  if (fw4.forward_policy() != "accept" && (zone.log & 1)): %}
++               log prefix "{{ fw4.forward_policy() }} {{ zone.name }} forward: "
++{%  endif %}
+        }
+ 
+ {%  if (zone.dflags.helper): %}

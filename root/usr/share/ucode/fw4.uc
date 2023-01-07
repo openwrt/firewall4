@@ -3191,7 +3191,7 @@ return {
 			enabled: [ "bool", "1" ],
 			reload_set: [ "bool" ],
 			counters: [ "bool" ],
-			comment: [ "bool" ],
+			comment: [ "string" ],
 
 			name: [ "string", null, REQUIRED ],
 			family: [ "family", "4" ],

@@ -1,0 +1,168 @@
+Testing an ipset declaration.
+
+-- Testcase --
+{%
+	include("./root/usr/share/firewall4/main.uc", {
+		getenv: function(varname) {
+			switch (varname) {
+			case 'ACTION':
+				return 'print';
+			}
+		}
+	})
+%}
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File fs/open~set-entries_txt.txt --
+10.11.12.13 53
+172.16.27.1 443
+-- End --
+
+-- File uci/firewall.json --
+{
+	"ipset": [
+		{
+			"name": "test-set",
+			"comment": "A simple set",
+			"counters": "1",
+			"family": "IPv4",
+			"match": [ "src_ip", "dest_port" ],
+			"timeout": "600",
+			"maxelem": "1000",
+			"entry": [
+				"1.2.3.4 80",
+				"5.6.7.8 22"
+			],
+			"loadfile": "set-entries.txt"
+		}
+	]
+}
+-- End --
+
+-- Expect stdout --
+table inet fw4
+flush table inet fw4
+
+table inet fw4 {
+	#
+	# Set definitions
+	#
+
+	set test-set {
+		comment "A simple set"
+		type ipv4_addr . inet_service
+		size 1000
+		timeout 600s
+		flags timeout
+		elements = {
+			1.2.3.4 . 80,
+			5.6.7.8 . 22,
+			10.11.12.13 . 53,
+			172.16.27.1 . 443,
+		}
+	}
+
+
+	#
+	# Defines
+	#
+
+
+	#
+	# User includes
+	#
+
+	include "/etc/nftables.d/*.nft"
+
+
+	#
+	# Filter rules
+	#
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
+
+		ct state established,related accept comment "!fw4: Allow inbound established and related flows"
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		ct state established,related accept comment "!fw4: Allow forwarded established and related flows"
+	}
+
+	chain output {
+		type filter hook output priority filter; policy drop;
+
+		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
+
+		ct state established,related accept comment "!fw4: Allow outbound established and related flows"
+	}
+
+	chain prerouting {
+		type filter hook prerouting priority filter; policy accept;
+	}
+
+	chain handle_reject {
+		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
+		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
+	}
+
+
+	#
+	# NAT rules
+	#
+
+	chain dstnat {
+		type nat hook prerouting priority dstnat; policy accept;
+	}
+
+	chain srcnat {
+		type nat hook postrouting priority srcnat; policy accept;
+	}
+
+
+	#
+	# Raw rules (notrack)
+	#
+
+	chain raw_prerouting {
+		type filter hook prerouting priority raw; policy accept;
+	}
+
+	chain raw_output {
+		type filter hook output priority raw; policy accept;
+	}
+
+
+	#
+	# Mangle rules
+	#
+
+	chain mangle_prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+	}
+
+	chain mangle_postrouting {
+		type filter hook postrouting priority mangle; policy accept;
+	}
+
+	chain mangle_input {
+		type filter hook input priority mangle; policy accept;
+	}
+
+	chain mangle_output {
+		type route hook output priority mangle; policy accept;
+	}
+
+	chain mangle_forward {
+		type filter hook forward priority mangle; policy accept;
+	}
+}
+-- End --
