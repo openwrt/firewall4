@@ -67,6 +67,7 @@ const ipv4_icmptypes = {
 };
 
 const ipv6_icmptypes = {
+	/* "name": [ type-code, code-min, code-max ] */
 	"destination-unreachable": [ 1, 0, 0xFF ],
 	"no-route": [ 1, 0, 0 ],
 	"communication-prohibited": [ 1, 1, 1 ],
@@ -91,6 +92,11 @@ const ipv6_icmptypes = {
 	"echo-reply": [ 129, 0, 0xFF ],
 	"pong": [ 129, 0, 0xFF ], /* Alias */
 
+	/* only code zero (0) */
+	"multicast-listener-query": [ 130, 0, 0xFF ],
+	"multicast-listener-report": [ 131, 0, 0xFF ],
+	"multicast-listener-done": [ 132, 0, 0xFF ],
+
 	"router-solicitation": [ 133, 0, 0xFF ],
 
 	"router-advertisement": [ 134, 0, 0xFF ],
@@ -101,7 +107,63 @@ const ipv6_icmptypes = {
 	"neighbour-advertisement": [ 136, 0, 0xFF ],
 	"neighbor-advertisement": [ 136, 0, 0xFF ], /* Alias */
 
-	"redirect": [ 137, 0, 0xFF ]
+	"redirect": [ 137, 0, 0xFF ],
+
+	/* codes 0, 1, 255 */
+	"router-renumbering": [ 138, 0, 0xFF ],
+
+	/* codes 0, 1, 2 */
+	"node-info-query": [ 139, 0, 0xFF ],
+	/* codes 0, 1, 2 */
+	"node-info-response": [ 140, 0, 0xFF ],
+
+	"inverse-neighbour-discovery-solicitation-message": [ 141, 0, 0xFF ],
+	"inverse-neighbor-discovery-solicitation-message": [ 141, 0, 0xFF ], /* Alias */
+
+	"inverse-neighbour-discovery-advertisement-message": [ 142, 0, 0xFF ],
+	"inverse-neighbor-discovery-advertisement-message": [ 142, 0, 0xFF ], /* Alias */
+
+	"v2-multicast-listener-report": [ 143, 0, 0xFF ],
+
+	"home-agent-address-discovery-request-message": [ 144, 0, 0xFF ],
+	"home-agent-address-discovery-reply-message": [ 145, 0, 0xFF ],
+
+	"mobile-prefix-solicitation": [ 146, 0, 0xFF ],
+	"mobile-prefix-advertisement": [ 147, 0, 0xFF ],
+
+	/* SEND */
+	"certification-path-solicitation-message": [ 148, 0, 0xFF ],
+	"certification-path-advertisement-message": [ 149, 0, 0xFF ],
+
+	"seamoby-protocol-message": [ 150, 0, 0xFF ],
+
+	/* IPv6 multicast: FF02:0:0:0:0:0:0:6A, no code fields */
+	"multicast-router-advertisement": [ 151, 0, 0xFF ],
+	"multicast-router-solicitation": [ 152, 0, 0xFF ],
+	"multicast-router-termination": [ 153, 0, 0xFF ],
+
+	/* codes 0-5, 6-255 */
+	"fmipv6-message": [ 154, 0, 0xFF ],
+
+	"rpl-control-message": [ 155, 0, 0xFF ],
+
+	"ilnpv6-locator-update-message": [ 156, 0, 0xFF ],
+
+	/* codes 0-4, 5-15 */
+	"duplicate-address-request": [ 157, 0, 0xFF ],
+	/* codes 0-4, 5-15 */
+	"duplicate-address-confirmation" [ 158, 0, 0xFF ],
+
+	/* Multicast Protocol for Low-Power */
+	"mpl-control-message": [ 159, 0, 0xFF ],
+
+	/* codes 0, 1-255 */
+	"extended-echo-request" [ 160, 0, 0xFF ],
+	"extended-ping" [ 160, 0, 0xFF ],  /* Alias */
+
+	/* codes 0-4, 5-255 */
+	"extended-echo-reply" [ 161, 0, 0xFF ],
+	"extended-pong" [ 161, 0, 0xFF ]  /* Alias */
 };
 
 const dscp_classes = {
