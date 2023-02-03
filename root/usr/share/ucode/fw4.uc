@@ -152,18 +152,18 @@ const ipv6_icmptypes = {
 	/* codes 0-4, 5-15 */
 	"duplicate-address-request": [ 157, 0, 0xFF ],
 	/* codes 0-4, 5-15 */
-	"duplicate-address-confirmation" [ 158, 0, 0xFF ],
+	"duplicate-address-confirmation": [ 158, 0, 0xFF ],
 
 	/* Multicast Protocol for Low-Power */
 	"mpl-control-message": [ 159, 0, 0xFF ],
 
 	/* codes 0, 1-255 */
-	"extended-echo-request" [ 160, 0, 0xFF ],
-	"extended-ping" [ 160, 0, 0xFF ],  /* Alias */
+	"extended-echo-request": [ 160, 0, 0xFF ],
+	"extended-ping": [ 160, 0, 0xFF ],  /* Alias */
 
 	/* codes 0-4, 5-255 */
-	"extended-echo-reply" [ 161, 0, 0xFF ],
-	"extended-pong" [ 161, 0, 0xFF ]  /* Alias */
+	"extended-echo-reply": [ 161, 0, 0xFF ],
+	"extended-pong": [ 161, 0, 0xFF ]  /* Alias */
 };
 
 const dscp_classes = {
