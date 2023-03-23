@@ -20,6 +20,7 @@ table inet fw4 {
 	flowtable ft {
 		hook ingress priority 0;
 		devices = {{ fw4.set(flowtable_devices, true) }};
+		counter;
 {% if (fw4.default_option("flow_offloading_hw")): %}
 		flags offload;
 {% endif %}
