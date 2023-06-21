@@ -269,6 +269,7 @@ table inet fw4 {
 
 	chain mangle_postrouting {
 		type filter hook postrouting priority mangle; policy accept;
+		oifname "pppoe-wan" tcp flags syn / syn,fin,rst tcp option maxseg size set rt mtu comment "!fw4: Zone wan IPv4/IPv6 egress MTU fixing"
 	}
 
 	chain mangle_input {
@@ -281,8 +282,7 @@ table inet fw4 {
 
 	chain mangle_forward {
 		type filter hook forward priority mangle; policy accept;
-		iifname "pppoe-wan" tcp flags syn tcp option maxseg size set rt mtu comment "!fw4: Zone wan IPv4/IPv6 ingress MTU fixing"
-		oifname "pppoe-wan" tcp flags syn tcp option maxseg size set rt mtu comment "!fw4: Zone wan IPv4/IPv6 egress MTU fixing"
+		iifname "pppoe-wan" tcp flags syn / syn,fin,rst tcp option maxseg size set rt mtu comment "!fw4: Zone wan IPv4/IPv6 ingress MTU fixing"
 	}
 }
 -- End --
