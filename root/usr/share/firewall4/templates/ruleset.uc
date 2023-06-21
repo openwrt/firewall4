@@ -417,6 +417,13 @@ table inet fw4 {
 {% for (let rule in fw4.rules("mangle_postrouting")): %}
 		{%+ include("rule.uc", { fw4, rule }) %}
 {% endfor %}
+{% for (let zone in fw4.zones()): %}
+{%  if (zone.mtu_fix): %}
+{%   for (let rule in zone.match_rules): %}
+                {%+ include("zone-mssfix.uc", { fw4, zone, rule, egress: true }) %}
+{%   endfor %}
+{%  endif %}
+{% endfor %}
 {% fw4.includes('chain-append', 'mangle_postrouting') %}
 	}
 
@@ -443,14 +450,6 @@ table inet fw4 {
 {% fw4.includes('chain-prepend', 'mangle_forward') %}
 {% for (let rule in fw4.rules("mangle_forward")): %}
 		{%+ include("rule.uc", { fw4, rule }) %}
-{% endfor %}
-{% for (let zone in fw4.zones()): %}
-{%  if (zone.mtu_fix): %}
-{%   for (let rule in zone.match_rules): %}
-		{%+ include("zone-mssfix.uc", { fw4, zone, rule, egress: false }) %}
-		{%+ include("zone-mssfix.uc", { fw4, zone, rule, egress: true }) %}
-{%   endfor %}
-{%  endif %}
 {% endfor %}
 {% fw4.includes('chain-append', 'mangle_forward') %}
 	}
