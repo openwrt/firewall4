@@ -61,6 +61,10 @@
 	{{ fw4.concat(redirect.ipset.fields) }}{{
 		redirect.ipset.invert ? ' !=' : ''
 	}} @{{ redirect.ipset.name }} {%+ endif -%}
+{%+ if (redirect.log && zone?.log_limit): -%}
+	limit name "{{ zone.name }}_log_limit" log prefix {{ fw4.quote(redirect.log, true) }}
+		{%+ include("redirect.uc", { fw4, zone, redirect: {...redirect, log:0 } }) %}
+{%+ else -%}
 {%+ if (redirect.counter): -%}
 	counter {%+ endif -%}
 {%+ if (redirect.log): -%}
@@ -73,3 +77,4 @@
 	{{ redirect.target }} {{ redirect.raddr ? fw4.host(redirect.raddr, redirect.rport != null) : '' }}
 	{%- if (redirect.rport): %}:{{ fw4.port(redirect.rport) }}{% endif %}
 {% endif %} comment {{ fw4.quote(`!fw4: ${redirect.name}`, true) }}
+{% endif -%}

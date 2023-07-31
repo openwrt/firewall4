@@ -2,6 +2,7 @@
 	let flowtable_devices = fw4.resolve_offload_devices();
 	let available_helpers = filter(fw4.helpers(), h => h.available);
 	let defined_ipsets = fw4.ipsets();
+	let zones_with_limits = filter(fw4.zones(), z => z.log_limit);
 -%}
 
 table inet fw4
@@ -82,6 +83,19 @@ table inet fw4 {
 
 {% endfor %}
 
+{% if (length(zones_with_limits)): %}
+	#
+	# Limits
+	#
+
+{%   for (let zone in fw4.zones()): %}
+{%     if (zone.log_limit): %}
+	limit {{ zone.name }}_log_limit { rate {{zone.log_limit.val}} ; comment "{{zone.name}} log limit"; }
+
+{%     endif %}
+{%   endfor %}
+
+{% endif %}
 	#
 	# User includes
 	#
@@ -131,7 +145,7 @@ table inet fw4 {
 		ct state invalid drop comment "!fw4: Drop flows with invalid conntrack state"
 {% endif %}
 {% for (let rule in fw4.rules("forward")): %}
-		{%+ include("rule.uc", { fw4, zone:null, rule }) %}
+		{%+ include("rule.uc", { fw4, zone:(rule.src.zone?.log_limit ? rule.src.zone : rule.dest.zone), rule }) %}
 {% endfor %}
 {% for (let zone in fw4.zones()): for (let rule in zone.match_rules): %}
 		{%+ include("zone-jump.uc", { fw4, zone, rule, direction: "forward" }) %}
@@ -245,6 +259,8 @@ table inet fw4 {
 {%  fw4.includes('chain-append', `forward_${zone.name}`) %}
 		jump {{ zone.forward }}_to_{{ zone.name }}
 {%  if (fw4.forward_policy() != "accept" && (zone.log & 1)): %}
+{%    if (zone.log_limit): %}
+		limit name "{{ zone.name }}_log_limit" {%+ endif -%}
 		log prefix "{{ fw4.forward_policy() }} {{ zone.name }} forward: "
 {%  endif %}
 	}
