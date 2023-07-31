@@ -69,11 +69,15 @@
 	{{ fw4.concat(rule.ipset.fields) }}{{
 		rule.ipset.invert ? ' !=' : ''
 	}} @{{ rule.ipset.name }} {%+ endif -%}
-{%+ if (rule.counter): -%}
+{%+ if (rule.log && zone?.log_limit): -%}
+	limit name "{{ zone.name }}.log_limit" log prefix {{ fw4.quote(rule.log, true) }}
+		{%+ include("rule.uc", { fw4, zone, rule: { ...rule, log: 0 } }) %}
+{%+ else -%}
+{%+  if (rule.counter): -%}
 	counter {%+ endif -%}
-{%+ if (rule.log): -%}
+{%+  if (rule.log): -%}
 	log prefix {{ fw4.quote(rule.log, true) }} {%+ endif -%}
-{%+ if (rule.target == "mark"): -%}
+{%+  if (rule.target == "mark"): -%}
 	meta mark set {{
 		(rule.set_xmark.mask == 0xFFFFFFFF)
 			? fw4.hex(rule.set_xmark.mark)
@@ -85,15 +89,16 @@
 						? `mark xor ${fw4.hex(rule.set_xmark.mark)}`
 						: `mark and ${fw4.hex(~rule.set_xmark.mask & 0xFFFFFFFF)} xor ${fw4.hex(rule.set_xmark.mark)}`
 	}} {%+
-   elif (rule.target == "dscp"): -%}
+     elif (rule.target == "dscp"): -%}
 	{{ fw4.ipproto(rule.family) }} dscp set {{ fw4.hex(rule.set_dscp.dscp) }} {%+
-   elif (rule.target == "notrack"): -%}
+     elif (rule.target == "notrack"): -%}
 	notrack {%+
-   elif (rule.target == "helper"): -%}
+     elif (rule.target == "helper"): -%}
 	ct helper set {{ fw4.quote(rule.set_helper.name, true) }} {%+
-   elif (rule.jump_chain): -%}
+     elif (rule.jump_chain): -%}
 	jump {{ rule.jump_chain }} {%+
-   elif (rule.target): -%}
+     elif (rule.target): -%}
 	{{ rule.target }} {%+
-   endif -%}
+     endif -%}
 comment {{ fw4.quote(`!fw4: ${rule.name}`, true) }}
+{%+ endif -%}

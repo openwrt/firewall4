@@ -1990,7 +1990,7 @@ return {
 			custom_chains: [ "bool", null, UNSUPPORTED ],
 
 			log: [ "int" ],
-			log_limit: [ "limit", null, UNSUPPORTED ],
+			log_limit: [ "limit" ],
 
 			auto_helper: [ "bool", "1" ],
 			helper: [ "cthelper", null, PARSE_LIST ],
