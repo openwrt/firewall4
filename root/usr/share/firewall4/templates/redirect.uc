@@ -61,7 +61,10 @@
 	{{ fw4.concat(redirect.ipset.fields) }}{{
 		redirect.ipset.invert ? ' !=' : ''
 	}} @{{ redirect.ipset.name }} {%+ endif -%}
-{%+ if (redirect.log && zone?.log_limit): -%}
+{%+ if (redirect.log && redirect.log_limit): -%}
+	limit rate {{ redirect.log_limit.val }} log prefix {{ fw4.quote(redirect.log, true) }}
+		{%+ include("redirect.uc", { fw4, zone, redirect: {...redirect, log:0 } }) %}
+{%+ elif (redirect.log && zone?.log_limit): -%}
 	limit name "{{ zone.name }}_log_limit" log prefix {{ fw4.quote(redirect.log, true) }}
 		{%+ include("redirect.uc", { fw4, zone, redirect: {...redirect, log:0 } }) %}
 {%+ else -%}

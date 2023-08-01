@@ -139,6 +139,14 @@ specified or not.
 			"dest": "wan",
 			"src_ip": [ "192.168.1.3" ],
 			"target": "drop"
+		},
+		{
+			".description": "src any log",
+			"proto": "tcp",
+			"src": "*",
+			"dest_port": 1009,
+			"log": 1,
+			"log_limit": "5/min"
 		}
 	],
 	"redirect": [
@@ -149,7 +157,17 @@ specified or not.
 			"dest_ip": "10.0.0.2",
 			"dest_port": "22",
 			"log": "1"
+		},
+		{
+			"proto": "tcp",
+			"src": "wan",
+			"dest": "lan",
+			"dest_ip": "10.0.0.2",
+			"dest_port": "23",
+			"log": "1",
+			"log_limit": "4/min"
 		}
+
 	]
 }
 -- End --
@@ -210,6 +228,8 @@ table inet fw4 {
 		ct state established,related accept comment "!fw4: Allow inbound established and related flows"
 		tcp dport 1007 counter log prefix "@rule[6]: " comment "!fw4: @rule[6]"
 		tcp dport 1008 counter comment "!fw4: @rule[7]"
+		tcp dport 1009 limit rate 5/min log prefix "@rule[12]: "
+		tcp dport 1009 counter comment "!fw4: @rule[12]"
 		iifname "br-lan" jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
 		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
 		iifname "br-guest" jump input_guest comment "!fw4: Handle guest IPv4/IPv6 input traffic"
@@ -358,15 +378,19 @@ table inet fw4 {
 
 	chain dstnat_lan {
 		ip saddr { 10.0.0.0/24, 192.168.26.0/24 } ip daddr 10.11.12.194 dnat 10.0.0.2:22 comment "!fw4: @redirect[0] (reflection)"
+		ip saddr { 10.0.0.0/24, 192.168.26.0/24 } ip daddr 10.11.12.194 dnat 10.0.0.2:23 comment "!fw4: @redirect[1] (reflection)"
 	}
 
 	chain srcnat_lan {
 		ip saddr { 10.0.0.0/24, 192.168.26.0/24 } ip daddr 10.0.0.2 tcp dport 22 snat 10.0.0.1 comment "!fw4: @redirect[0] (reflection)"
+		ip saddr { 10.0.0.0/24, 192.168.26.0/24 } ip daddr 10.0.0.2 tcp dport 23 snat 10.0.0.1 comment "!fw4: @redirect[1] (reflection)"
 	}
 
 	chain dstnat_wan {
 		meta nfproto ipv4 limit name "wan_log_limit" log prefix "@redirect[0]: "
 		meta nfproto ipv4 counter dnat 10.0.0.2:22 comment "!fw4: @redirect[0]"
+		meta nfproto ipv4 limit rate 4/min log prefix "@redirect[1]: "
+		meta nfproto ipv4 counter dnat 10.0.0.2:23 comment "!fw4: @redirect[1]"
 	}
 
 	chain srcnat_wan {

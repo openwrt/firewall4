@@ -2321,6 +2321,7 @@ return {
 
 			counter: [ "bool", "1" ],
 			log: [ "string" ],
+			log_limit: [ "limit" ],
 
 			target: [ "target" ]
 		});
@@ -2637,6 +2638,7 @@ return {
 
 			counter: [ "bool", "1" ],
 			log: [ "string" ],
+			log_limit: [ "limit" ],
 
 			target: [ "target", "dnat" ]
 		});
