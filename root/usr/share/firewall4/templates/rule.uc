@@ -69,7 +69,10 @@
 	{{ fw4.concat(rule.ipset.fields) }}{{
 		rule.ipset.invert ? ' !=' : ''
 	}} @{{ rule.ipset.name }} {%+ endif -%}
-{%+ if (rule.log && zone?.log_limit): -%}
+{%+ if (rule.log && rule.log_limit): -%}
+	limit rate {{ rule.log_limit.rate }}/{{ rule.log_limit.unit }} log prefix {{ fw4.quote(rule.log, true) }}
+		{%+ include("rule.uc", { fw4, zone, rule: { ...rule, log: 0 } }) %}
+{%+ elif (rule.log && zone?.log_limit): -%}
 	limit name "{{ zone.name }}.log_limit" log prefix {{ fw4.quote(rule.log, true) }}
 		{%+ include("rule.uc", { fw4, zone, rule: { ...rule, log: 0 } }) %}
 {%+ else -%}
