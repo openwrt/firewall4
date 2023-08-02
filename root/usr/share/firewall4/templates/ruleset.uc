@@ -99,7 +99,7 @@ table inet fw4 {
 
 {% fw4.includes('chain-prepend', 'input') %}
 		ct state established,related accept comment "!fw4: Allow inbound established and related flows"
-		iifname "lo" notrack accept comment "!fw4: Accept traffic from loopback"
+		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
 {% if (fw4.default_option("drop_invalid")): %}
 		ct state invalid drop comment "!fw4: Drop flows with invalid conntrack state"
 {% endif %}
@@ -145,7 +145,7 @@ table inet fw4 {
 		type filter hook output priority filter; policy {{ fw4.output_policy(true) }};
 {% fw4.includes('chain-prepend', 'output') %}
 		ct state established,related accept comment "!fw4: Allow outbound established and related flows"
-		oifname "lo" notrack accept comment "!fw4: Accept traffic towards loopback"
+		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
 {% if (fw4.default_option("drop_invalid")): %}
 		ct state invalid drop comment "!fw4: Drop flows with invalid conntrack state"
 {% endif %}
