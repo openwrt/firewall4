@@ -2380,7 +2380,7 @@ return {
 			}
 		}
 
-		let need_src_action_chain = (rule) => (rule.src?.zone?.log && rule.target != "accept");
+		let need_src_action_chain = (rule) => (rule.src?.zone?.log && rule.target && rule.target != "accept");
 
 		let add_rule = (family, proto, saddrs, daddrs, sports, dports, icmptypes, icmpcodes, ipset, rule) => {
 			let r = {
