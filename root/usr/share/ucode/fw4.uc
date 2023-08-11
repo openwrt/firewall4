@@ -2380,7 +2380,7 @@ return {
 			}
 		}
 
-		let need_src_action_chain = (rule) => (rule.src?.zone?.log && rule.target && rule.target != "accept");
+		let need_src_action_chain = (rule) => (rule.src?.zone?.log && rule.target != "accept");
 
 		let add_rule = (family, proto, saddrs, daddrs, sports, dports, icmptypes, icmpcodes, ipset, rule) => {
 			let r = {
@@ -2478,11 +2478,11 @@ return {
 						r.chain = "output";
 				}
 
-				if (r.dest && !r.dest.any) {
+				if (r.target && r.dest && !r.dest.any) {
 					r.jump_chain = `${r.target}_to_${r.dest.zone.name}`;
 					r.dest.zone.dflags[r.target] = true;
 				}
-				else if (need_src_action_chain(r)) {
+				else if (r.target && need_src_action_chain(r)) {
 					r.jump_chain = `${r.target}_from_${r.src.zone.name}`;
 					r.src.zone.sflags[r.target] = true;
 				}
