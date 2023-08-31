@@ -1,6 +1,5 @@
 {%+ if (rule.family): -%}
 	meta nfproto {{ fw4.nfproto(rule.family) }} {%+ endif -%}
-{%+ include("zone-match.uc", { egress, rule }) -%}
 {%+ if (zone.counter): -%}
 	counter {%+ endif -%}
 {%+ if (verdict != "accept" && (zone.log & 1)): -%}

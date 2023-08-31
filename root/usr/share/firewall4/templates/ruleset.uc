@@ -260,20 +260,20 @@ table inet fw4 {
 {%  for (let verdict in ["accept", "reject", "drop"]): %}
 {%   if (zone.sflags[verdict]): %}
 	chain {{ verdict }}_from_{{ zone.name }} {
-{%    for (let rule in zone.match_rules): %}
+# {%    for (let rule in zone.match_rules): %}
 		{%+ include("zone-verdict.uc", { fw4, zone, rule, egress: false, verdict }) %}
-{%    endfor %}
+# {%    endfor %}
 	}
 
 {%   endif %}
 {%   if (zone.dflags[verdict]): %}
 	chain {{ verdict }}_to_{{ zone.name }} {
-{%   for (let rule in zone.match_rules): %}
+# {%   for (let rule in zone.match_rules): %}
 {%     if (verdict == "accept" && (zone.masq || zone.masq6) && !zone.masq_allow_invalid): %}
 		{%+ include("zone-drop-invalid.uc", { fw4, zone, rule }) %}
 {%     endif %}
 		{%+ include("zone-verdict.uc", { fw4, zone, rule, egress: true, verdict }) %}
-{%   endfor %}
+# {%   endfor %}
 	}
 
 {%   endif %}
