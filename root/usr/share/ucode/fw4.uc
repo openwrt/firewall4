@@ -423,7 +423,7 @@ function map_setmatch(set, match, proto) {
 	return fields;
 }
 
-function resolve_lower_devices(devstatus, devname, require_hwoffload) {
+function resolve_lower_devices(devstatus, devname) {
 	let dir = fs.opendir(`/sys/class/net/${devname}`);
 	let devs = [];
 
@@ -435,13 +435,12 @@ function resolve_lower_devices(devstatus, devname, require_hwoffload) {
 
 			while ((e = dir.read()) != null)
 				if (index(e, "lower_") === 0)
-					push(devs, ...resolve_lower_devices(devstatus, substr(e, 6), require_hwoffload));
+					push(devs, ...resolve_lower_devices(devstatus, substr(e, 6)));
 
 			break;
 
 		default:
-			if (!require_hwoffload || devstatus[devname]?.["hw-tc-offload"])
-				push(devs, devname);
+			push(devs, devname);
 
 			break;
 		}
@@ -519,27 +518,20 @@ return {
 			bus.disconnect();
 		}
 
+		for (let zone in this.zones())
+			for (let device in zone.related_physdevs)
+				push(devices, ...resolve_lower_devices(devstatus, device));
+		devices = sort(uniq(devices));
+
 		if (this.default_option("flow_offloading_hw")) {
-			for (let zone in this.zones())
-				for (let device in zone.related_physdevs)
-					push(devices, ...resolve_lower_devices(devstatus, device, true));
-
-			devices = sort(uniq(devices));
-
 			if (length(devices) && nft_try_hw_offload(devices))
 				return devices;
 
 			this.warn('Hardware flow offloading unavailable, falling back to software offloading');
 			this.state.defaults.flow_offloading_hw = false;
-
-			devices = [];
 		}
 
-		for (let zone in this.zones())
-			for (let device in zone.related_physdevs)
-				push(devices, ...resolve_lower_devices(devstatus, device, false));
-
-		return sort(uniq(devices));
+		return devices;
 	},
 
 	check_set_types: function() {
