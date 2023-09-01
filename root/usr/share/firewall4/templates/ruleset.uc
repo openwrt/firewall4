@@ -194,6 +194,7 @@ table inet fw4 {
 				? `icmpx type ${fw4.default_option("tcp_reject_code")}`
 				: "tcp reset"
 		}} comment "!fw4: Reject TCP traffic"
+		limit rate over 1000/second burst 50 packets counter drop
 		reject with {{
 			(fw4.default_option("any_reject_code") != "tcp-reset")
 				? `icmpx type ${fw4.default_option("any_reject_code")}`
