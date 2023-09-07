@@ -88,13 +88,13 @@ table inet fw4 {
 
 		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
 
-		ct state established,related accept comment "!fw4: Allow inbound established and related flows"
+		ct state vmap { established : accept, related : accept} comment "!fw4: Handle inbound flows"
 	}
 
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
-		ct state established,related accept comment "!fw4: Allow forwarded established and related flows"
+		ct state vmap { established : accept, related : accept} comment "!fw4: Handle forwarded flows"
 	}
 
 	chain output {
@@ -102,7 +102,7 @@ table inet fw4 {
 
 		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-		ct state established,related accept comment "!fw4: Allow outbound established and related flows"
+		ct state vmap { established : accept, related : accept} comment "!fw4: Handle outbound flows"
 	}
 
 	chain prerouting {
