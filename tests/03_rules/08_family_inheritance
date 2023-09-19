@@ -200,7 +200,7 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy drop;
 
-		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state established,related accept comment "!fw4: Allow inbound established and related flows"
 		meta nfproto ipv4 ip saddr 192.168.1.0/24 jump input_ipv4only comment "!fw4: Handle ipv4only IPv4 input traffic"
@@ -216,7 +216,7 @@ table inet fw4 {
 	chain output {
 		type filter hook output priority filter; policy drop;
 
-		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
 		ct state established,related accept comment "!fw4: Allow outbound established and related flows"
 		meta nfproto ipv4 ip daddr 192.168.1.0/24 jump output_ipv4only comment "!fw4: Handle ipv4only IPv4 output traffic"

@@ -97,7 +97,7 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy {{ fw4.input_policy(true) }};
 
-		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 {% fw4.includes('chain-prepend', 'input') %}
 		ct state established,related accept comment "!fw4: Allow inbound established and related flows"
@@ -145,7 +145,7 @@ table inet fw4 {
 	chain output {
 		type filter hook output priority filter; policy {{ fw4.output_policy(true) }};
 
-		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
 {% fw4.includes('chain-prepend', 'output') %}
 		ct state established,related accept comment "!fw4: Allow outbound established and related flows"

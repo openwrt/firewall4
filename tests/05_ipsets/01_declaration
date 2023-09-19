@@ -86,7 +86,7 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy drop;
 
-		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state established,related accept comment "!fw4: Allow inbound established and related flows"
 	}
@@ -100,7 +100,7 @@ table inet fw4 {
 	chain output {
 		type filter hook output priority filter; policy drop;
 
-		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
 		ct state established,related accept comment "!fw4: Allow outbound established and related flows"
 	}
