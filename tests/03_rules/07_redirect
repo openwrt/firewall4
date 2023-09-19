@@ -163,7 +163,7 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy drop;
 
-		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
 		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
@@ -183,7 +183,7 @@ table inet fw4 {
 	chain output {
 		type filter hook output priority filter; policy drop;
 
-		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
 		oifname "pppoe-wan" jump output_wan comment "!fw4: Handle wan IPv4/IPv6 output traffic"

@@ -75,7 +75,7 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy drop;
 
-		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
 	}
@@ -89,7 +89,7 @@ table inet fw4 {
 	chain output {
 		type filter hook output priority filter; policy drop;
 
-		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
 		meta l4proto { "icmp", "ipv6-icmp" } counter comment "!fw4: ICMP rule #1"
