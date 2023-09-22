@@ -189,6 +189,7 @@ table inet fw4 {
 	}
 
 	chain handle_reject {
+		meta mark and 0x10000 ne 0x0 counter drop comment "!fw4: prevent rejects to mismatched interface"
 		meta l4proto tcp reject with {{
 			(fw4.default_option("tcp_reject_code") != "tcp-reset")
 				? `icmpx type ${fw4.default_option("tcp_reject_code")}`
@@ -405,6 +406,7 @@ table inet fw4 {
 	chain mangle_prerouting {
 		type filter hook prerouting priority mangle; policy accept;
 {% fw4.includes('chain-prepend', 'mangle_prerouting') %}
+		fib saddr . iif oif eq 0 counter meta mark set meta mark or 0x10000 comment "!fw4: mark packets on mismatched interface"
 {% for (let rule in fw4.rules("mangle_prerouting")): %}
 		{%+ include("rule.uc", { fw4, rule }) %}
 {% endfor %}
