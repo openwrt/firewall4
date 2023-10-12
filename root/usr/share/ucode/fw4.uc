@@ -1573,6 +1573,10 @@ return {
 		]), "postpend", "append");
 	},
 
+	parse_identifier: function(val) {
+		return match(val, /^[a-zA-Z_.][a-zA-Z0-9\/_.-]*$/)?.[0];
+	},
+
 	parse_string: function(val) {
 		return "" + val;
 	},
@@ -1960,7 +1964,7 @@ return {
 		let zone = this.parse_options(data, {
 			enabled: [ "bool", "1" ],
 
-			name: [ "string", null, REQUIRED ],
+			name: [ "identifier", null, REQUIRED ],
 			family: [ "family" ],
 
 			network: [ "device", null, PARSE_LIST ],
@@ -3185,7 +3189,7 @@ return {
 			reload: [ "bool", null, UNSUPPORTED ],
 
 			position: [ "includeposition" ],
-			chain: [ "string" ]
+			chain: [ "identifier" ]
 		});
 
 		if (!inc.enabled) {
@@ -3247,7 +3251,7 @@ return {
 			counters: [ "bool" ],
 			comment: [ "string" ],
 
-			name: [ "string", null, REQUIRED ],
+			name: [ "identifier", null, REQUIRED ],
 			family: [ "family", "4" ],
 
 			storage: [ "string", null, UNSUPPORTED ],
