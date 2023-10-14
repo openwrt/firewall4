@@ -276,7 +276,7 @@ table inet fw4 {
 {%   if (zone.dflags[verdict]): %}
 	chain {{ verdict }}_to_{{ zone.name }} {
 {%   for (let rule in zone.match_rules): %}
-{%     if (verdict == "accept" && (zone.masq || zone.masq6) && !zone.masq_allow_invalid): %}
+{%     if (!fw4.default_option("drop_invalid") && verdict == "accept" && (zone.masq || zone.masq6) && !zone.masq_allow_invalid): %}
 		{%+ include("zone-drop-invalid.uc", { fw4, zone, rule }) %}
 {%     endif %}
 		{%+ include("zone-verdict.uc", { fw4, zone, rule, egress: true, verdict }) %}
