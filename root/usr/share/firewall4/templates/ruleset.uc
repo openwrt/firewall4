@@ -115,7 +115,10 @@ table inet fw4 {
 		iifname "lo" accept comment "!fw4: Accept traffic from loopback"
 
 {% fw4.includes('chain-prepend', 'input') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle inbound flows"
+		ct state established,related accept comment "!fw4: Allow inbound established and related flows"
+{% if (fw4.default_option("drop_invalid")): %}
+		ct state invalid drop comment "!fw4: Drop flows with invalid conntrack state"
+{% endif %}
 {% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")): %}
 		tcp flags & (fin | syn | rst | ack) == syn jump syn_flood comment "!fw4: Rate limit TCP syn packets"
 {% endif %}
@@ -138,7 +141,10 @@ table inet fw4 {
 		meta l4proto { tcp, udp } flow offload @ft;
 {% endif %}
 {% fw4.includes('chain-prepend', 'forward') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle forwarded flows"
+		ct state established,related accept comment "!fw4: Allow forwarded established and related flows"
+{% if (fw4.default_option("drop_invalid")): %}
+		ct state invalid drop comment "!fw4: Drop flows with invalid conntrack state"
+{% endif %}
 {% for (let rule in fw4.rules("forward")): %}
 		{%+ include("rule.uc", { fw4, zone: (rule.src?.zone?.log_limit ? rule.src.zone : rule.dest?.zone), rule }) %}
 {% endfor %}
@@ -157,7 +163,10 @@ table inet fw4 {
 		oifname "lo" accept comment "!fw4: Accept traffic towards loopback"
 
 {% fw4.includes('chain-prepend', 'output') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle outbound flows"
+		ct state established,related accept comment "!fw4: Allow outbound established and related flows"
+{% if (fw4.default_option("drop_invalid")): %}
+		ct state invalid drop comment "!fw4: Drop flows with invalid conntrack state"
+{% endif %}
 {% for (let rule in fw4.rules("output")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
 {% endfor %}
