@@ -134,11 +134,9 @@ table inet fw4 {
 	chain forward {
 		type filter hook forward priority filter; policy {{ fw4.forward_policy(true) }};
 
-{% if (length(flowtable_devices) > 0): %}
-		meta l4proto { tcp, udp } flow offload @ft;
-{% endif %}
 {% fw4.includes('chain-prepend', 'forward') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle forwarded flows"
+		ct state vmap { established : {% if (length(flowtable_devices) > 0): %} jump handle_offload {% else %} accept {% endif -%}
+			, related : accept {% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle forwarded flows"
 {% for (let rule in fw4.rules("forward")): %}
 		{%+ include("rule.uc", { fw4, zone: (rule.src?.zone?.log_limit ? rule.src.zone : rule.dest?.zone), rule }) %}
 {% endfor %}
@@ -207,6 +205,13 @@ table inet fw4 {
 		}} comment "!fw4: Reject any other traffic"
 	}
 
+{% if (length(flowtable_devices) > 0): %}
+	chain handle_offload {
+		meta l4proto { tcp, udp } flow offload @ft
+		accept
+	}
+
+{% endif %}
 {% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")):
 	let r = fw4.default_option("synflood_rate");
 	let b = fw4.default_option("synflood_burst");
