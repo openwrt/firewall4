@@ -150,7 +150,7 @@ table inet fw4 {
 	}
 
 	chain handle_offload {
-		meta l4proto { tcp, udp } flow offload @ft
+		flow offload @ft accept
 		accept
 	}
 

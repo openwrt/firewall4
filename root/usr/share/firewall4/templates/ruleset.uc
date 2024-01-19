@@ -207,7 +207,7 @@ table inet fw4 {
 
 {% if (length(flowtable_devices) > 0): %}
 	chain handle_offload {
-		meta l4proto { tcp, udp } flow offload @ft
+		flow offload @ft accept
 		accept
 	}
 
