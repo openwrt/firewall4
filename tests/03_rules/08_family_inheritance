@@ -202,14 +202,14 @@ table inet fw4 {
 
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		ct state established,related accept comment "!fw4: Handle inbound flows"
 		meta nfproto ipv4 ip saddr 192.168.1.0/24 jump input_ipv4only comment "!fw4: Handle ipv4only IPv4 input traffic"
 	}
 
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		ct state established,related accept comment "!fw4: Handle forwarded flows"
 		meta nfproto ipv4 ip saddr 192.168.1.0/24 jump forward_ipv4only comment "!fw4: Handle ipv4only IPv4 forward traffic"
 	}
 
@@ -218,7 +218,7 @@ table inet fw4 {
 
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
+		ct state established,related accept comment "!fw4: Handle outbound flows"
 		meta nfproto ipv4 ip daddr 192.168.1.0/24 jump output_ipv4only comment "!fw4: Handle ipv4only IPv4 output traffic"
 	}
 

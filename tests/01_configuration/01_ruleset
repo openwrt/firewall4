@@ -112,7 +112,7 @@ table inet fw4 {
 
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		ct state established,related accept comment "!fw4: Handle inbound flows"
 		tcp flags & (fin | syn | rst | ack) == syn jump syn_flood comment "!fw4: Rate limit TCP syn packets"
 		iifname "br-lan" jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
 		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
@@ -122,8 +122,7 @@ table inet fw4 {
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
-		meta l4proto { tcp, udp } flow offload @ft;
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		ct state vmap { established : jump handle_offload, related : accept } comment "!fw4: Handle forwarded flows"
 		iifname "br-lan" jump forward_lan comment "!fw4: Handle lan IPv4/IPv6 forward traffic"
 		iifname "pppoe-wan" jump forward_wan comment "!fw4: Handle wan IPv4/IPv6 forward traffic"
 		jump handle_reject
@@ -134,7 +133,7 @@ table inet fw4 {
 
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
+		ct state established,related accept comment "!fw4: Handle outbound flows"
 		meta l4proto tcp counter comment "!fw4: Test-Deprecated-Rule-Option"
 		oifname "br-lan" jump output_lan comment "!fw4: Handle lan IPv4/IPv6 output traffic"
 		oifname "pppoe-wan" jump output_wan comment "!fw4: Handle wan IPv4/IPv6 output traffic"
@@ -148,6 +147,11 @@ table inet fw4 {
 	chain handle_reject {
 		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
 		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
+	}
+
+	chain handle_offload {
+		flow offload @ft accept
+		accept
 	}
 
 	chain syn_flood {

@@ -240,7 +240,7 @@ table inet fw4 {
 
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		ct state established,related accept comment "!fw4: Handle inbound flows"
 		tcp dport 1007 counter log prefix "@rule[6]: " comment "!fw4: @rule[6]"
 		tcp dport 1008 counter comment "!fw4: @rule[7]"
 		tcp dport 1009 limit rate 5/minute log prefix "@rule[12]: "
@@ -254,7 +254,7 @@ table inet fw4 {
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		ct state established,related accept comment "!fw4: Handle forwarded flows"
 		tcp dport 1005 limit name "lan.log_limit" log prefix "@rule[4]: "
 		tcp dport 1005 counter comment "!fw4: @rule[4]"
 		tcp dport 1006 counter comment "!fw4: @rule[5]"
@@ -269,7 +269,7 @@ table inet fw4 {
 
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
+		ct state established,related accept comment "!fw4: Handle outbound flows"
 		oifname "br-lan" jump output_lan comment "!fw4: Handle lan IPv4/IPv6 output traffic"
 		meta nfproto ipv4 oifname "pppoe-wan" jump output_wan comment "!fw4: Handle wan IPv4 output traffic"
 		oifname "br-guest" jump output_guest comment "!fw4: Handle guest IPv4/IPv6 output traffic"
