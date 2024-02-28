@@ -115,7 +115,7 @@ table inet fw4 {
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 {% fw4.includes('chain-prepend', 'input') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle inbound flows"
+		ct state established,related accept comment "!fw4: Handle inbound flows"
 {% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")): %}
 		tcp flags & (fin | syn | rst | ack) == syn jump syn_flood comment "!fw4: Rate limit TCP syn packets"
 {% endif %}
@@ -135,8 +135,11 @@ table inet fw4 {
 		type filter hook forward priority filter; policy {{ fw4.forward_policy(true) }};
 
 {% fw4.includes('chain-prepend', 'forward') %}
-		ct state vmap { established : {% if (length(flowtable_devices) > 0): %} jump handle_offload {% else %} accept {% endif -%}
-			, related : accept {% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle forwarded flows"
+{% if (length(flowtable_devices) > 0): %}
+		ct state vmap { established : jump handle_offload, related : accept } comment "!fw4: Handle forwarded flows"
+{% else %}
+		ct state established,related accept comment "!fw4: Handle forwarded flows"
+{% endif %}
 {% for (let rule in fw4.rules("forward")): %}
 		{%+ include("rule.uc", { fw4, zone: (rule.src?.zone?.log_limit ? rule.src.zone : rule.dest?.zone), rule }) %}
 {% endfor %}
@@ -155,7 +158,11 @@ table inet fw4 {
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
 {% fw4.includes('chain-prepend', 'output') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle outbound flows"
+{% if (fw4.default_option("drop_invalid")): %}
+		ct state vmap { established : accept, related : accept, invalid : drop } comment "!fw4: Handle outbound flows"
+{% else %}
+		ct state established,related accept comment "!fw4: Handle outbound flows"
+{% endif %}
 {% for (let rule in fw4.rules("output")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
 {% endfor %}
@@ -179,6 +186,9 @@ table inet fw4 {
 
 	chain prerouting {
 		type filter hook prerouting priority filter; policy accept;
+{% if (fw4.default_option("drop_invalid")): %}
+		iif != "lo" ct state invalid drop comment "!fw4: Drop packets in invalid flow state"
+{% endif %}
 {% for (let zone in fw4.zones()): %}
 {%  if (zone.dflags.helper): %}
 {%   for (let rule in zone.match_rules): %}
