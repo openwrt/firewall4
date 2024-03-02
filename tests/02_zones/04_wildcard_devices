@@ -122,7 +122,7 @@ table inet fw4 {
 
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
-		ct state established,related accept comment "!fw4: Handle inbound flows"
+		ct state established,related accept comment "!fw4: Accept inbound flows"
 		jump input_test1 comment "!fw4: Handle test1 IPv4/IPv6 input traffic"
 		iifname "/never/" jump input_test2 comment "!fw4: Handle test2 IPv4/IPv6 input traffic"
 		iifname "test*" jump input_test3 comment "!fw4: Handle test3 IPv4/IPv6 input traffic"
@@ -137,7 +137,7 @@ table inet fw4 {
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
-		ct state established,related accept comment "!fw4: Handle forwarded flows"
+		ct state established,related accept comment "!fw4: Accept forwarded flows"
 		jump forward_test1 comment "!fw4: Handle test1 IPv4/IPv6 forward traffic"
 		iifname "/never/" jump forward_test2 comment "!fw4: Handle test2 IPv4/IPv6 forward traffic"
 		iifname "test*" jump forward_test3 comment "!fw4: Handle test3 IPv4/IPv6 forward traffic"
@@ -154,7 +154,7 @@ table inet fw4 {
 
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-		ct state established,related accept comment "!fw4: Handle outbound flows"
+		ct state established,related accept comment "!fw4: Accept outbound flows"
 		jump output_test1 comment "!fw4: Handle test1 IPv4/IPv6 output traffic"
 		oifname "/never/" jump output_test2 comment "!fw4: Handle test2 IPv4/IPv6 output traffic"
 		oifname "test*" jump output_test3 comment "!fw4: Handle test3 IPv4/IPv6 output traffic"

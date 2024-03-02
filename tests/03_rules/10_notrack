@@ -103,7 +103,7 @@ table inet fw4 {
 
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
-		ct state established,related accept comment "!fw4: Handle inbound flows"
+		ct state established,related accept comment "!fw4: Accept inbound flows"
 		iifname "eth0" jump input_zone1 comment "!fw4: Handle zone1 IPv4/IPv6 input traffic"
 		iifname "lo" jump input_zone2 comment "!fw4: Handle zone2 IPv4/IPv6 input traffic"
 		meta nfproto ipv4 ip saddr 127.0.0.0/8 jump input_zone3 comment "!fw4: Handle zone3 IPv4 input traffic"
@@ -113,7 +113,7 @@ table inet fw4 {
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
-		ct state established,related accept comment "!fw4: Handle forwarded flows"
+		ct state established,related accept comment "!fw4: Accept forwarded flows"
 		iifname "eth0" jump forward_zone1 comment "!fw4: Handle zone1 IPv4/IPv6 forward traffic"
 		iifname "lo" jump forward_zone2 comment "!fw4: Handle zone2 IPv4/IPv6 forward traffic"
 		meta nfproto ipv4 ip saddr 127.0.0.0/8 jump forward_zone3 comment "!fw4: Handle zone3 IPv4 forward traffic"
@@ -125,7 +125,7 @@ table inet fw4 {
 
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-		ct state established,related accept comment "!fw4: Handle outbound flows"
+		ct state established,related accept comment "!fw4: Accept outbound flows"
 		oifname "eth0" jump output_zone1 comment "!fw4: Handle zone1 IPv4/IPv6 output traffic"
 		oifname "lo" jump output_zone2 comment "!fw4: Handle zone2 IPv4/IPv6 output traffic"
 		meta nfproto ipv4 ip daddr 127.0.0.0/8 jump output_zone3 comment "!fw4: Handle zone3 IPv4 output traffic"

@@ -156,7 +156,7 @@ table inet fw4 {
 
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
-		ct state established,related accept comment "!fw4: Handle inbound flows"
+		ct state established,related accept comment "!fw4: Accept inbound flows"
 		iifname "eth0" jump input_test comment "!fw4: Handle test IPv4/IPv6 input traffic"
 	}
 
@@ -164,7 +164,7 @@ table inet fw4 {
 		type filter hook forward priority filter; policy drop;
 
 		include "/usr/share/nftables.d/include-chain-start-forward.nft"
-		ct state established,related accept comment "!fw4: Handle forwarded flows"
+		ct state established,related accept comment "!fw4: Accept forwarded flows"
 		iifname "eth0" jump forward_test comment "!fw4: Handle test IPv4/IPv6 forward traffic"
 		include "/usr/share/nftables.d/include-chain-end-forward.nft"
 	}
@@ -174,7 +174,7 @@ table inet fw4 {
 
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-		ct state established,related accept comment "!fw4: Handle outbound flows"
+		ct state established,related accept comment "!fw4: Accept outbound flows"
 		oifname "eth0" jump output_test comment "!fw4: Handle test IPv4/IPv6 output traffic"
 	}
 
