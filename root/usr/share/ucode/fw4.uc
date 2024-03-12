@@ -520,7 +520,11 @@ return {
 
 		for (let zone in this.zones())
 			for (let device in zone.related_physdevs)
-				push(devices, ...resolve_lower_devices(devstatus, device));
+				if (this.default_option("flow_offloading_hw")) {
+					push(devices, ...resolve_lower_devices(devstatus, device));
+				} else {
+					push(devices,device);
+				}
 		devices = sort(uniq(devices));
 
 		if (this.default_option("flow_offloading_hw")) {
