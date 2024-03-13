@@ -2049,6 +2049,9 @@ return {
 					});
 				}
 
+				if (net.physdev && !e.invert)
+					push(related_physdevs, net.physdev);
+
 				push(related_subnets, ...(net.ipaddrs || []));
 			}
 		}
