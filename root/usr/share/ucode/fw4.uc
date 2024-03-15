@@ -505,12 +505,12 @@ return {
 		return v;
 	},
 
-	resolve_offload_devices: function() {
-		if (!this.default_option("flow_offloading"))
-			return [];
+	resolve_hw_offload_devices: function() {
+		if (!this.default_option("flow_offloading_hw"))
+			return null;
 
 		let devstatus = null;
-		let devices = [];
+		let devices = null;
 		let bus = ubus.connect();
 
 		if (bus) {
@@ -520,15 +520,36 @@ return {
 
 		for (let zone in this.zones())
 			for (let device in zone.related_physdevs)
-				push(devices, ...resolve_lower_devices(devstatus, device));
+				push(devices ||= [], ...resolve_lower_devices(devstatus, device));
+
+		if (!devices)
+			return null;
+
 		devices = sort(uniq(devices));
 
-		if (this.default_option("flow_offloading_hw")) {
-			if (length(devices) && nft_try_hw_offload(devices))
-				return devices;
-
+		if (!nft_try_hw_offload(devices)) {
 			this.warn('Hardware flow offloading unavailable, falling back to software offloading');
 			this.state.defaults.flow_offloading_hw = false;
+
+			return null;
+		}
+
+		return devices;
+	},
+
+	resolve_offload_devices: function() {
+		if (!this.default_option("flow_offloading"))
+			return [];
+
+		let devices = this.resolve_hw_offload_devices();
+
+		if (!devices) {
+			devices = [];
+
+			for (let zone in this.zones())
+				push(devices, ...zone.related_physdevs);
+
+			devices = sort(uniq(devices));
 		}
 
 		return devices;
