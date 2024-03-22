@@ -123,9 +123,6 @@ table inet fw4 {
 
 	chain prerouting {
 		type filter hook prerouting priority filter; policy accept;
-		iifname "zone1" jump helper_test1 comment "!fw4: Handle test1 IPv4/IPv6 helper assignment"
-		iifname "zone2" jump helper_test2 comment "!fw4: Handle test2 IPv4/IPv6 helper assignment"
-		iifname "zone3" jump helper_test3 comment "!fw4: Handle test3 IPv4/IPv6 helper assignment"
 	}
 
 	chain handle_reject {
@@ -143,9 +140,6 @@ table inet fw4 {
 
 	chain forward_test1 {
 		jump accept_to_test1
-	}
-
-	chain helper_test1 {
 	}
 
 	chain accept_from_test1 {
@@ -168,9 +162,6 @@ table inet fw4 {
 		jump drop_to_test2
 	}
 
-	chain helper_test2 {
-	}
-
 	chain drop_from_test2 {
 		iifname "zone2" counter drop comment "!fw4: drop test2 IPv4/IPv6 traffic"
 	}
@@ -189,9 +180,6 @@ table inet fw4 {
 
 	chain forward_test3 {
 		jump reject_to_test3
-	}
-
-	chain helper_test3 {
 	}
 
 	chain reject_from_test3 {
