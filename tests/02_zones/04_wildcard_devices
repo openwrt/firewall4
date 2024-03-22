@@ -168,14 +168,6 @@ table inet fw4 {
 
 	chain prerouting {
 		type filter hook prerouting priority filter; policy accept;
-		iifname "/never/" jump helper_test2 comment "!fw4: Handle test2 IPv4/IPv6 helper assignment"
-		iifname "test*" jump helper_test3 comment "!fw4: Handle test3 IPv4/IPv6 helper assignment"
-		iifname "foo*" jump helper_test4 comment "!fw4: Handle test4 IPv4/IPv6 helper assignment"
-		iifname "bar*" jump helper_test4 comment "!fw4: Handle test4 IPv4/IPv6 helper assignment"
-		iifname { "test1", "test2" } jump helper_test4 comment "!fw4: Handle test4 IPv4/IPv6 helper assignment"
-		iifname "foo*" iifname != { "test3", "test4" } iifname != "baz*" iifname != "qrx*" jump helper_test5 comment "!fw4: Handle test5 IPv4/IPv6 helper assignment"
-		iifname "bar*" iifname != { "test3", "test4" } iifname != "baz*" iifname != "qrx*" jump helper_test5 comment "!fw4: Handle test5 IPv4/IPv6 helper assignment"
-		iifname { "test1", "test2" } iifname != { "test3", "test4" } iifname != "baz*" iifname != "qrx*" jump helper_test5 comment "!fw4: Handle test5 IPv4/IPv6 helper assignment"
 	}
 
 	chain handle_reject {
@@ -193,9 +185,6 @@ table inet fw4 {
 
 	chain forward_test1 {
 		jump drop_to_test1
-	}
-
-	chain helper_test1 {
 	}
 
 	chain drop_from_test1 {
@@ -218,9 +207,6 @@ table inet fw4 {
 		jump drop_to_test2
 	}
 
-	chain helper_test2 {
-	}
-
 	chain drop_from_test2 {
 		iifname "/never/" counter drop comment "!fw4: drop test2 IPv4/IPv6 traffic"
 	}
@@ -241,9 +227,6 @@ table inet fw4 {
 		jump drop_to_test3
 	}
 
-	chain helper_test3 {
-	}
-
 	chain drop_from_test3 {
 		iifname "test*" counter drop comment "!fw4: drop test3 IPv4/IPv6 traffic"
 	}
@@ -262,9 +245,6 @@ table inet fw4 {
 
 	chain forward_test4 {
 		jump drop_to_test4
-	}
-
-	chain helper_test4 {
 	}
 
 	chain drop_from_test4 {
@@ -289,9 +269,6 @@ table inet fw4 {
 
 	chain forward_test5 {
 		jump drop_to_test5
-	}
-
-	chain helper_test5 {
 	}
 
 	chain drop_from_test5 {

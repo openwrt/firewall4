@@ -147,9 +147,6 @@ table inet fw4 {
 		jump drop_to_lan
 	}
 
-	chain helper_lan {
-	}
-
 	chain drop_from_lan {
 	}
 
