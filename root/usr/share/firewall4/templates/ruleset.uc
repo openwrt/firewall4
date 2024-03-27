@@ -187,7 +187,7 @@ table inet fw4 {
 	chain prerouting {
 		type filter hook prerouting priority filter; policy accept;
 {% if (fw4.default_option("drop_invalid")): %}
-		iif != "lo" ct state invalid drop comment "!fw4: Drop packets in invalid flow state"
+		ct state invalid drop comment "!fw4: Drop packets in invalid flow state"
 {% endif %}
 {% for (let zone in fw4.zones()): %}
 {%  if (zone.dflags.helper): %}
