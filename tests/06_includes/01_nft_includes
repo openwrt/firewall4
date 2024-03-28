@@ -165,6 +165,7 @@ table inet fw4 {
 
 		include "/usr/share/nftables.d/include-chain-start-forward.nft"
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		iifname "eth0" jump forward_test comment "!fw4: Handle test IPv4/IPv6 forward traffic"
 		include "/usr/share/nftables.d/include-chain-end-forward.nft"
 	}

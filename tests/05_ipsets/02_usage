@@ -169,6 +169,7 @@ table inet fw4 {
 		type filter hook forward priority filter; policy drop;
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		meta nfproto ipv4 meta l4proto tcp ip saddr . tcp dport @test-set-1 counter comment "!fw4: Rule using test set #1"
 		meta nfproto ipv4 meta l4proto tcp ip saddr . tcp sport @test-set-2 counter comment "!fw4: Rule using test set #2, match direction should default to 'source'"
 		meta nfproto ipv4 meta l4proto tcp ip daddr . tcp sport @test-set-1 counter comment "!fw4: Rule using test set #1, overriding match direction"

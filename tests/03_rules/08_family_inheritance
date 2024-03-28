@@ -210,6 +210,7 @@ table inet fw4 {
 		type filter hook forward priority filter; policy drop;
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		meta nfproto ipv4 ip saddr 192.168.1.0/24 jump forward_ipv4only comment "!fw4: Handle ipv4only IPv4 forward traffic"
 	}
 

@@ -139,6 +139,7 @@ table inet fw4 {
 {% endif %}
 {% fw4.includes('chain-prepend', 'forward') %}
 		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle forwarded flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 {% for (let rule in fw4.rules("forward")): %}
 		{%+ include("rule.uc", { fw4, zone: (rule.src?.zone?.log_limit ? rule.src.zone : rule.dest?.zone), rule }) %}
 {% endfor %}

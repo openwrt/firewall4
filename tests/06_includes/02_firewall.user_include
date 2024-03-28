@@ -101,6 +101,7 @@ table inet fw4 {
 		type filter hook forward priority filter; policy drop;
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		iifname "eth0" jump forward_test comment "!fw4: Handle test IPv4/IPv6 forward traffic"
 	}
 

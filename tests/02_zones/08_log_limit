@@ -255,6 +255,7 @@ table inet fw4 {
 		type filter hook forward priority filter; policy drop;
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		tcp dport 1005 limit name "lan.log_limit" log prefix "@rule[4]: "
 		tcp dport 1005 counter comment "!fw4: @rule[4]"
 		tcp dport 1006 counter comment "!fw4: @rule[5]"

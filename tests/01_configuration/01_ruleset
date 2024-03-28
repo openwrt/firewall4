@@ -124,6 +124,7 @@ table inet fw4 {
 
 		meta l4proto { tcp, udp } flow offload @ft;
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		iifname "br-lan" jump forward_lan comment "!fw4: Handle lan IPv4/IPv6 forward traffic"
 		iifname "pppoe-wan" jump forward_wan comment "!fw4: Handle wan IPv4/IPv6 forward traffic"
 		jump handle_reject
