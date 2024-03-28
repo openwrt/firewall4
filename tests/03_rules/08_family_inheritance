@@ -203,6 +203,7 @@ table inet fw4 {
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		meta nfproto ipv4 ip saddr 192.168.1.0/24 jump input_ipv4only comment "!fw4: Handle ipv4only IPv4 input traffic"
 	}
 
@@ -234,7 +235,6 @@ table inet fw4 {
 
 	chain input_ipv4only {
 		meta nfproto ipv4 tcp dport 22 counter accept comment "!fw4: Rule #1"
-		ct status dnat accept comment "!fw4: Accept port redirections"
 		jump drop_from_ipv4only
 	}
 
@@ -243,7 +243,6 @@ table inet fw4 {
 	}
 
 	chain forward_ipv4only {
-		ct status dnat accept comment "!fw4: Accept port forwards"
 		jump drop_to_ipv4only
 	}
 

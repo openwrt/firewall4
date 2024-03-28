@@ -134,6 +134,7 @@ table inet fw4 {
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
 		iifname "br-lan" jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
 		iifname "br-guest" jump input_guest comment "!fw4: Handle guest IPv4/IPv6 input traffic"
@@ -181,7 +182,6 @@ table inet fw4 {
 	}
 
 	chain input_wan {
-		ct status dnat accept comment "!fw4: Accept port redirections"
 		jump drop_from_wan
 	}
 
@@ -190,7 +190,6 @@ table inet fw4 {
 	}
 
 	chain forward_wan {
-		ct status dnat accept comment "!fw4: Accept port forwards"
 		jump drop_to_wan
 	}
 
@@ -203,7 +202,6 @@ table inet fw4 {
 	}
 
 	chain input_lan {
-		ct status dnat accept comment "!fw4: Accept port redirections"
 		jump drop_from_lan
 	}
 
@@ -212,7 +210,6 @@ table inet fw4 {
 	}
 
 	chain forward_lan {
-		ct status dnat accept comment "!fw4: Accept port forwards"
 		jump drop_to_lan
 	}
 
@@ -225,7 +222,6 @@ table inet fw4 {
 	}
 
 	chain input_guest {
-		ct status dnat accept comment "!fw4: Accept port redirections"
 		jump drop_from_guest
 	}
 
@@ -234,7 +230,6 @@ table inet fw4 {
 	}
 
 	chain forward_guest {
-		ct status dnat accept comment "!fw4: Accept port forwards"
 		jump drop_to_guest
 	}
 

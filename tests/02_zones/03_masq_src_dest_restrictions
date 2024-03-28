@@ -123,6 +123,7 @@ table inet fw4 {
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		iifname "zone1" jump input_test1 comment "!fw4: Handle test1 IPv4/IPv6 input traffic"
 		iifname "zone2" jump input_test2 comment "!fw4: Handle test2 IPv4/IPv6 input traffic"
 	}

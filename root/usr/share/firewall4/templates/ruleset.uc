@@ -116,6 +116,7 @@ table inet fw4 {
 
 {% fw4.includes('chain-prepend', 'input') %}
 		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle inbound flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 {% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")): %}
 		tcp flags & (fin | syn | rst | ack) == syn jump syn_flood comment "!fw4: Rate limit TCP syn packets"
 {% endif %}
@@ -225,9 +226,6 @@ table inet fw4 {
 {%  for (let rule in fw4.rules(`input_${zone.name}`)): %}
 		{%+ include("rule.uc", { fw4, zone, rule }) %}
 {%  endfor %}
-{%  if (zone.dflags.dnat): %}
-		ct status dnat accept comment "!fw4: Accept port redirections"
-{%  endif %}
 {%  fw4.includes('chain-append', `input_${zone.name}`) %}
 		jump {{ zone.input }}_from_{{ zone.name }}
 	}
@@ -246,9 +244,6 @@ table inet fw4 {
 {%  for (let rule in fw4.rules(`forward_${zone.name}`)): %}
 		{%+ include("rule.uc", { fw4, zone, rule }) %}
 {%  endfor %}
-{%  if (zone.dflags.dnat): %}
-		ct status dnat accept comment "!fw4: Accept port forwards"
-{%  endif %}
 {%  fw4.includes('chain-append', `forward_${zone.name}`) %}
 		jump {{ zone.forward }}_to_{{ zone.name }}
 {%  if (fw4.forward_policy() != "accept" && (zone.log & 1)): %}

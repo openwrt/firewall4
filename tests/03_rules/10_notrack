@@ -104,6 +104,7 @@ table inet fw4 {
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		iifname "eth0" jump input_zone1 comment "!fw4: Handle zone1 IPv4/IPv6 input traffic"
 		iifname "lo" jump input_zone2 comment "!fw4: Handle zone2 IPv4/IPv6 input traffic"
 		meta nfproto ipv4 ip saddr 127.0.0.0/8 jump input_zone3 comment "!fw4: Handle zone3 IPv4 input traffic"

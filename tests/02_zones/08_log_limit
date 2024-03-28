@@ -241,6 +241,7 @@ table inet fw4 {
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		ct status dnat accept comment "!fw4: Accept dnat flows"
 		tcp dport 1007 counter log prefix "@rule[6]: " comment "!fw4: @rule[6]"
 		tcp dport 1008 counter comment "!fw4: @rule[7]"
 		tcp dport 1009 limit rate 5/minute log prefix "@rule[12]: "
@@ -290,7 +291,6 @@ table inet fw4 {
 		tcp dport 1001 limit name "lan.log_limit" log prefix "@rule[0]: "
 		tcp dport 1001 counter comment "!fw4: @rule[0]"
 		tcp dport 1002 counter comment "!fw4: @rule[1]"
-		ct status dnat accept comment "!fw4: Accept port redirections"
 		jump drop_from_lan
 	}
 
@@ -305,7 +305,6 @@ table inet fw4 {
 		ip saddr 192.168.1.2 counter jump drop_to_wan comment "!fw4: Deny rule #1"
 		meta l4proto icmp ip saddr 192.168.1.3 counter jump drop_to_wan comment "!fw4: Deny rule #2"
 		meta nfproto ipv4 jump accept_to_wan comment "!fw4: Accept lan to wan IPv4 forwarding"
-		ct status dnat accept comment "!fw4: Accept port forwards"
 		jump drop_to_lan
 		limit name "lan.log_limit" log prefix "drop lan forward: "
 	}
@@ -325,7 +324,6 @@ table inet fw4 {
 	}
 
 	chain input_wan {
-		ct status dnat accept comment "!fw4: Accept port redirections"
 		jump drop_from_wan
 	}
 
@@ -334,7 +332,6 @@ table inet fw4 {
 	}
 
 	chain forward_wan {
-		ct status dnat accept comment "!fw4: Accept port forwards"
 		jump drop_to_wan
 		limit name "wan.log_limit" log prefix "drop wan forward: "
 	}
