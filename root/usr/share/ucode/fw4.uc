@@ -1643,7 +1643,7 @@ return {
 
 	quote: function(s, force) {
 		if (force === true || !match(s, /^([0-9A-Fa-f:.\/-]+)( \. [0-9A-Fa-f:.\/-]+)*$/))
-			return `"${replace(s + "", /(["\\])/g, '\\$1')}"`;
+			return `"${replace(s, '"', "'")}"`;
 
 		return s;
 	},
