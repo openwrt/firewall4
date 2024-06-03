@@ -547,7 +547,9 @@ return {
 			devices = [];
 
 			for (let zone in this.zones())
-				push(devices, ...zone.related_physdevs);
+				for (let device in zone.related_physdevs)
+					if (fs.access(`/sys/class/net/${device}`))
+						push(devices, device);
 
 			devices = sort(uniq(devices));
 		}
