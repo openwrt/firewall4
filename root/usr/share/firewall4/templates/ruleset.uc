@@ -116,6 +116,9 @@ table inet fw4 {
 
 {% fw4.includes('chain-prepend', 'input') %}
 		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle inbound flows"
+{% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")): %}
+		ct state new meta l4proto tcp jump syn_flood comment "!fw4: Rate limit TCP syn packets"
+{% endif %}
 {% for (let rule in fw4.rules("input")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
 {% endfor %}
@@ -434,9 +437,6 @@ table inet fw4 {
 	chain mangle_input {
 		type filter hook input priority mangle; policy accept;
 {% fw4.includes('chain-prepend', 'mangle_input') %}
-{% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")): %}
-		ct state new meta l4proto tcp jump syn_flood comment "!fw4: Rate limit TCP syn packets"
-{% endif %}
 {% for (let rule in fw4.rules("mangle_input")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
 {% endfor %}
