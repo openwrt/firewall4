@@ -112,7 +112,7 @@ table inet fw4 {
 
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
-		ct state established,related accept comment "!fw4: Accept inbound flows"
+		ct state vmap { established : accept, related : accept } comment "!fw4: Accept inbound flows"
 		tcp flags & (fin | syn | rst | ack) == syn jump syn_flood comment "!fw4: Rate limit TCP syn packets"
 		iifname "br-lan" jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
 		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
@@ -133,7 +133,7 @@ table inet fw4 {
 
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-		ct state established,related accept comment "!fw4: Accept outbound flows"
+		ct state vmap { established : accept, related : accept } comment "!fw4: Accept outbound flows"
 		meta l4proto tcp counter comment "!fw4: Test-Deprecated-Rule-Option"
 		oifname "br-lan" jump output_lan comment "!fw4: Handle lan IPv4/IPv6 output traffic"
 		oifname "pppoe-wan" jump output_wan comment "!fw4: Handle wan IPv4/IPv6 output traffic"
