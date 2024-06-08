@@ -136,7 +136,7 @@ table inet fw4 {
 
 {% fw4.includes('chain-prepend', 'forward') %}
 {% if (length(flowtable_devices) > 0): %}
-		ct state vmap { established : jump handle_offload, related : accept } comment "!fw4: Handle forwarded flows"
+		ct state vmap { established : goto handle_offload, related : goto handle_offload } comment "!fw4: Handle forwarded flows"
 {% else %}
 		ct state vmap { established : accept, related : accept } comment "!fw4: Accept forwarded flows"
 {% endif %}
