@@ -71,14 +71,14 @@ table inet fw4 {
 
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Accept inbound flows"
+		ct state established,related accept comment "!fw4: Accept inbound flows"
 		iifname "zone1" jump input_test1 comment "!fw4: Handle test1 IPv4/IPv6 input traffic"
 	}
 
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Accept forwarded flows"
+		ct state established,related accept comment "!fw4: Accept forwarded flows"
 		iifname "zone1" jump forward_test1 comment "!fw4: Handle test1 IPv4/IPv6 forward traffic"
 	}
 
@@ -87,7 +87,7 @@ table inet fw4 {
 
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Accept outbound flows"
+		ct state established,related accept comment "!fw4: Accept outbound flows"
 		oifname "zone1" jump output_test1 comment "!fw4: Handle test1 IPv4/IPv6 output traffic"
 	}
 

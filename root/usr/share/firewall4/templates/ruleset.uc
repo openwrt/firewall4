@@ -115,7 +115,7 @@ table inet fw4 {
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 {% fw4.includes('chain-prepend', 'input') %}
-		ct state vmap { established : accept, related : accept } comment "!fw4: Accept inbound flows"
+		ct state established,related accept comment "!fw4: Accept inbound flows"
 {% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")): %}
 		tcp flags & (fin | syn | rst | ack) == syn jump syn_flood comment "!fw4: Rate limit TCP syn packets"
 {% endif %}
@@ -136,9 +136,9 @@ table inet fw4 {
 
 {% fw4.includes('chain-prepend', 'forward') %}
 {% if (length(flowtable_devices) > 0): %}
-		ct state vmap { established : goto handle_offload, related : goto handle_offload } comment "!fw4: Handle forwarded flows"
+		ct state established,related goto handle_offload comment "!fw4: Handle forwarded flows"
 {% else %}
-		ct state vmap { established : accept, related : accept } comment "!fw4: Accept forwarded flows"
+		ct state established,related accept comment "!fw4: Accept forwarded flows"
 {% endif %}
 {% for (let rule in fw4.rules("forward")): %}
 		{%+ include("rule.uc", { fw4, zone: (rule.src?.zone?.log_limit ? rule.src.zone : rule.dest?.zone), rule }) %}
@@ -161,7 +161,7 @@ table inet fw4 {
 {% if (fw4.default_option("drop_invalid")): %}
 		ct state vmap { established : accept, related : accept, invalid : drop } comment "!fw4: Handle outbound flows"
 {% else %}
-		ct state vmap { established : accept, related : accept } comment "!fw4: Accept outbound flows"
+		ct state established,related accept comment "!fw4: Accept outbound flows"
 {% endif %}
 {% for (let rule in fw4.rules("output")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}

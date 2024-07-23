@@ -114,13 +114,13 @@ table inet fw4 {
 
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Accept inbound flows"
+		ct state established,related accept comment "!fw4: Accept inbound flows"
 	}
 
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Accept forwarded flows"
+		ct state established,related accept comment "!fw4: Accept forwarded flows"
 	}
 
 	chain output {
@@ -128,7 +128,7 @@ table inet fw4 {
 
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Accept outbound flows"
+		ct state established,related accept comment "!fw4: Accept outbound flows"
 		counter log prefix "@rule[0]: " comment "!fw4: @rule[0]"
 		counter log prefix "Explicit rule name: " comment "!fw4: Explicit rule name"
 		counter log prefix "Explicit prefix: " comment "!fw4: @rule[2]"
