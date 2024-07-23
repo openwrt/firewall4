@@ -150,7 +150,7 @@ table inet fw4 {
 	}
 
 	chain handle_offload {
-		flow offload @ft accept
+		flow add @ft accept
 		accept
 	}
 

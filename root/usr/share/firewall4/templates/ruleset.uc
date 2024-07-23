@@ -217,7 +217,7 @@ table inet fw4 {
 
 {% if (length(flowtable_devices) > 0): %}
 	chain handle_offload {
-		flow offload @ft accept
+		flow add @ft accept
 		accept
 	}
 
