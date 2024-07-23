@@ -131,9 +131,8 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy drop;
 
-		iif "lo" accept comment "!fw4: Accept traffic from loopback"
-
 		ct state established,related accept comment "!fw4: Accept inbound flows"
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
 		iifname "br-lan" jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
 		iifname "br-guest" jump input_guest comment "!fw4: Handle guest IPv4/IPv6 input traffic"
@@ -151,9 +150,8 @@ table inet fw4 {
 	chain output {
 		type filter hook output priority filter; policy drop;
 
-		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
-
 		ct state established,related accept comment "!fw4: Accept outbound flows"
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 		ip6 saddr & ::ffff == ::1 ip6 daddr & ::ffff != ::2 counter comment "!fw4: Mask rule #1"
 		ip6 saddr != { ::7, ::8 } ip6 saddr & ::ffff == ::1 ip6 saddr & ::ffff != ::5 ip6 saddr & ::ffff != ::6 ip6 daddr != { ::15, ::16 } ip6 daddr & ::ffff == ::9 ip6 daddr & ::ffff != ::13 ip6 daddr & ::ffff != ::14 counter comment "!fw4: Mask rule #2"
 		ip6 saddr != { ::7, ::8 } ip6 saddr & ::ffff == ::1 ip6 saddr & ::ffff != ::5 ip6 saddr & ::ffff != ::6 ip6 daddr != { ::15, ::16 } ip6 daddr & ::ffff == ::10 ip6 daddr & ::ffff != ::13 ip6 daddr & ::ffff != ::14 counter comment "!fw4: Mask rule #2"

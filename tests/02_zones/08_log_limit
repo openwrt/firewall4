@@ -238,9 +238,8 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy drop;
 
-		iif "lo" accept comment "!fw4: Accept traffic from loopback"
-
 		ct state established,related accept comment "!fw4: Accept inbound flows"
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 		tcp dport 1007 counter log prefix "@rule[6]: " comment "!fw4: @rule[6]"
 		tcp dport 1008 counter comment "!fw4: @rule[7]"
 		tcp dport 1009 limit rate 5/minute log prefix "@rule[12]: "
@@ -267,9 +266,8 @@ table inet fw4 {
 	chain output {
 		type filter hook output priority filter; policy drop;
 
-		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
-
 		ct state established,related accept comment "!fw4: Accept outbound flows"
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 		oifname "br-lan" jump output_lan comment "!fw4: Handle lan IPv4/IPv6 output traffic"
 		meta nfproto ipv4 oifname "pppoe-wan" jump output_wan comment "!fw4: Handle wan IPv4 output traffic"
 		oifname "br-guest" jump output_guest comment "!fw4: Handle guest IPv4/IPv6 output traffic"

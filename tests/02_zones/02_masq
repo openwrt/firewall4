@@ -97,9 +97,8 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy drop;
 
-		iif "lo" accept comment "!fw4: Accept traffic from loopback"
-
 		ct state established,related accept comment "!fw4: Accept inbound flows"
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 		iifname "zone1" jump input_test1 comment "!fw4: Handle test1 IPv4/IPv6 input traffic"
 		iifname "zone2" jump input_test2 comment "!fw4: Handle test2 IPv4/IPv6 input traffic"
 		iifname "zone3" jump input_test3 comment "!fw4: Handle test3 IPv4/IPv6 input traffic"
@@ -117,9 +116,8 @@ table inet fw4 {
 	chain output {
 		type filter hook output priority filter; policy drop;
 
-		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
-
 		ct state established,related accept comment "!fw4: Accept outbound flows"
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 		oifname "zone1" jump output_test1 comment "!fw4: Handle test1 IPv4/IPv6 output traffic"
 		oifname "zone2" jump output_test2 comment "!fw4: Handle test2 IPv4/IPv6 output traffic"
 		oifname "zone3" jump output_test3 comment "!fw4: Handle test3 IPv4/IPv6 output traffic"
