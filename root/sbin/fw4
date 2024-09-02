@@ -49,12 +49,9 @@ stop() {
 	{
 		flock -x 1000
 
-		if nft list tables inet | grep -sq "table inet fw4"; then
-			nft delete table inet fw4
-			rm -f $STATE
-		else
-			return 1
-		fi
+		nft delete table inet fw4
+		rm -f $STATE
+
 	} 1000>$LOCK
 }
 
