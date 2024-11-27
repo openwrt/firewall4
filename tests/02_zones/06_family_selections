@@ -294,7 +294,7 @@ table inet fw4 {
 	}
 
 	chain helper_test6 {
-		meta nfproto ipv4 meta l4proto tcp tcp dport 1234 ct helper set "test" comment "!fw4: An example IPv4-only conntrack helper"
+		meta nfproto ipv4 tcp dport 1234 ct helper set "test" comment "!fw4: An example IPv4-only conntrack helper"
 	}
 
 	chain drop_from_test6 {

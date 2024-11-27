@@ -2098,7 +2098,7 @@ return {
 			module: [ "string" ],
 			family: [ "family" ],
 			proto: [ "protocol", null, PARSE_LIST | FLATTEN_LIST | NO_INVERT ],
-			port: [ "port", null, NO_INVERT ]
+			port: [ "port", null, REQUIRED | NO_INVERT ]
 		});
 
 		if (helper === false) {
@@ -2423,6 +2423,7 @@ return {
 						proto: proto,
 						src: zone,
 						dports_pos: [ this.port(helper.port) ],
+						has_ports: true,
 						target: "helper",
 						set_helper: helper
 					});
