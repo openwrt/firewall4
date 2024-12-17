@@ -6,6 +6,7 @@ QUIET=""
 
 service_triggers() {
 	procd_add_reload_trigger firewall
+	procd_add_reload_data_trigger firewall
 }
 
 restart() {
