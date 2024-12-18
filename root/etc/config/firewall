@@ -81,7 +81,6 @@ config rule
 	option src		wan
 	option proto	icmp
 	list icmp_type		echo-request
-	list icmp_type		echo-reply
 	list icmp_type		destination-unreachable
 	list icmp_type		packet-too-big
 	list icmp_type		time-exceeded
@@ -102,7 +101,6 @@ config rule
 	option dest		*
 	option proto		icmp
 	list icmp_type		echo-request
-	list icmp_type		echo-reply
 	list icmp_type		destination-unreachable
 	list icmp_type		packet-too-big
 	list icmp_type		time-exceeded
