@@ -1,3 +1,4 @@
+ct packets < 14 {%+ -%}
 {%+ if (rule.family): -%}
 	meta nfproto {{ fw4.nfproto(rule.family) }} {%+ endif -%}
 {%+ include("zone-match.uc", { egress, rule }) -%}
