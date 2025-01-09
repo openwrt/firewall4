@@ -2375,6 +2375,11 @@ return {
 			return;
 		}
 
+		if ((rule.src_port || rule.dest_port) && !ensure_tcpudp(rule.proto)) {
+			this.warn_section(data, "specifies ports but no UDP/TCP protocol, ignoring section");
+			return;
+		}
+
 		switch (this.parse_bool(rule.log)) {
 		case true:
 			rule.log = `${rule.name}: `;
@@ -2668,6 +2673,11 @@ return {
 		}
 		else if (!redir.enabled) {
 			this.warn_section(data, "is disabled, ignoring section");
+			return;
+		}
+
+		if ((redir.src_port || redir.src_dport || redir.dest_port) && !ensure_tcpudp(redir.proto)) {
+			this.warn_section(data, "specifies ports but no UDP/TCP protocol, ignoring section");
 			return;
 		}
 
