@@ -81,7 +81,7 @@ config rule
 	option src		wan
 	option proto	icmp
 	list icmp_type		echo-request
-	list icmp_type		echo-reply
+	# list icmp_type		echo-reply
 	list icmp_type		destination-unreachable
 	list icmp_type		packet-too-big
 	list icmp_type		time-exceeded
@@ -91,9 +91,17 @@ config rule
 	list icmp_type		neighbour-solicitation
 	list icmp_type		router-advertisement
 	list icmp_type		neighbour-advertisement
+	# list icmo_type		fragmentation-needed
 	option limit		1000/sec
 	option family		ipv6
 	option target		ACCEPT
+
+config rule
+	option name		Drop-ICMPv6-Excess
+	option src		wan
+	option proto		icmp
+	option family		ipv6
+	option target		DROP
 
 # Allow essential forwarded IPv6 ICMP traffic
 config rule
@@ -102,15 +110,24 @@ config rule
 	option dest		*
 	option proto		icmp
 	list icmp_type		echo-request
-	list icmp_type		echo-reply
+	# list icmp_type		echo-reply
 	list icmp_type		destination-unreachable
 	list icmp_type		packet-too-big
 	list icmp_type		time-exceeded
 	list icmp_type		bad-header
 	list icmp_type		unknown-header-type
+	# list icmo_type		fragmentation-needed
 	option limit		1000/sec
 	option family		ipv6
 	option target		ACCEPT
+
+config rule
+	option name		Drop-ICMPv6-Forward-Excess
+	option sec		wan
+	option dest		*
+	option proto		icmp
+	option family		ipv6
+	option target		DROP
 
 config rule
 	option name		Allow-IPSec-ESP
