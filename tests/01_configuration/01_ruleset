@@ -116,7 +116,7 @@ table inet fw4 {
 		tcp flags & (fin | syn | rst | ack) == syn jump syn_flood comment "!fw4: Rate limit TCP syn packets"
 		iifname "br-lan" jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
 		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
-		jump handle_reject
+		goto handle_reject
 	}
 
 	chain forward {
@@ -126,7 +126,7 @@ table inet fw4 {
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
 		iifname "br-lan" jump forward_lan comment "!fw4: Handle lan IPv4/IPv6 forward traffic"
 		iifname "pppoe-wan" jump forward_wan comment "!fw4: Handle wan IPv4/IPv6 forward traffic"
-		jump handle_reject
+		goto handle_reject
 	}
 
 	chain output {
@@ -146,6 +146,7 @@ table inet fw4 {
 	}
 
 	chain handle_reject {
+		ct state invalid counter drop comment "!fw4: drop invalid packets before reject"
 		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
 		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
 	}
@@ -220,11 +221,11 @@ table inet fw4 {
 	}
 
 	chain reject_from_wan {
-		iifname "pppoe-wan" counter jump handle_reject comment "!fw4: reject wan IPv4/IPv6 traffic"
+		iifname "pppoe-wan" counter goto handle_reject comment "!fw4: reject wan IPv4/IPv6 traffic"
 	}
 
 	chain reject_to_wan {
-		oifname "pppoe-wan" counter jump handle_reject comment "!fw4: reject wan IPv4/IPv6 traffic"
+		oifname "pppoe-wan" counter goto handle_reject comment "!fw4: reject wan IPv4/IPv6 traffic"
 	}
 
 
