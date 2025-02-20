@@ -5,12 +5,12 @@
 	let zones_with_limits = filter(fw4.zones(), z => z.log_limit);
 -%}
 
+{% fw4.includes('ruleset-prepend') %}
 table inet fw4
 flush table inet fw4
 {% if (fw4.check_flowtable()): %}
 delete flowtable inet fw4 ft
 {% endif %}
-{% fw4.includes('ruleset-prepend') %}
 
 table inet fw4 {
 {% if (length(flowtable_devices) > 0): %}
