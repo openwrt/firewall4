@@ -184,9 +184,6 @@ table inet fw4 {
 
 	chain prerouting {
 		type filter hook prerouting priority filter; policy accept;
-{% if (fw4.default_option("drop_invalid")): %}
-		ct state invalid drop comment "!fw4: Drop packets in invalid flow state"
-{% endif %}
 {% for (let zone in fw4.zones()): %}
 {%  if (zone.dflags.helper): %}
 {%   for (let rule in zone.match_rules): %}
@@ -424,6 +421,9 @@ table inet fw4 {
 
 	chain mangle_prerouting {
 		type filter hook prerouting priority mangle; policy accept;
+{% if (fw4.default_option("drop_invalid")): %}
+		ct state invalid drop comment "!fw4: Drop packets in invalid flow state"
+{% endif %}
 {% fw4.includes('chain-prepend', 'mangle_prerouting') %}
 {% for (let rule in fw4.rules("mangle_prerouting")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
