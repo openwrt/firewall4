@@ -2571,7 +2571,7 @@ return {
 
 			/* check if there's no AF specific bits, in this case we can do an AF agnostic rule */
 			if (!family && rule.target != "dscp" && !has_ipv4_specifics && !has_ipv6_specifics) {
-				add_rule(0, proto, [], [], sports, dports, null, null, ipset, rule);
+				add_rule(0, proto, [], [], sports, dports, null, null, null, rule);
 			}
 
 			/* we need to emit one or two AF specific rules */
@@ -3305,7 +3305,11 @@ return {
 			return;
 		}
 
-		if (!length(ipset.match)) {
+		if (ipset.family == 0) {
+			this.warn_section(data, "must not specify family 'any'");
+			return;
+		}
+		else if (!length(ipset.match)) {
 			this.warn_section(data, "has no datatypes assigned");
 			return;
 		}
@@ -3313,11 +3317,6 @@ return {
 		let dirs = map(ipset.match, m => m[0]),
 		    types = map(ipset.match, m => m[1]),
 		    interval = false;
-
-		if (("ip" in types || "net" in types) && ipset.family == 0) {
-			this.warn_section(data, "must not specify family 'any' when matching type 'ip' or 'net'");
-			return;
-		}
 
 		if ("set" in types) {
 			this.warn_section(data, "match type 'set' is not supported");
