@@ -2209,7 +2209,7 @@ return {
 			zone.dflags.snat = true;
 
 		if ((zone.auto_helper && !(zone.masq || zone.masq6)) || length(zone.helper)) {
-			zone.dflags.helper = true;
+			zone.dflags.helper = false;
 
 			for (let helper in (length(zone.helper) ? zone.helper : this.state.helpers)) {
 				if (!helper.available)
@@ -2226,6 +2226,7 @@ return {
 						target: "helper",
 						set_helper: helper
 					});
+					zone.dflags.helper = true;
 				}
 			}
 		}
