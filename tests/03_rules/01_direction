@@ -69,25 +69,23 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy drop;
 
+		ct state established,related accept comment "!fw4: Accept inbound flows"
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
-
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
 		counter comment "!fw4: @rule[1]"
 	}
 
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		ct state established,related accept comment "!fw4: Accept forwarded flows"
 		counter comment "!fw4: @rule[3]"
 	}
 
 	chain output {
 		type filter hook output priority filter; policy drop;
 
+		ct state established,related accept comment "!fw4: Accept outbound flows"
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
-
-		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
 		counter comment "!fw4: @rule[0]"
 		counter comment "!fw4: @rule[2]"
 	}

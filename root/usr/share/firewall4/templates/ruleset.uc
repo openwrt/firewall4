@@ -112,10 +112,9 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy {{ fw4.input_policy(true) }};
 
-		iif "lo" accept comment "!fw4: Accept traffic from loopback"
-
 {% fw4.includes('chain-prepend', 'input') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle inbound flows"
+		ct state established,related accept comment "!fw4: Accept inbound flows"
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 {% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")): %}
 		tcp flags & (fin | syn | rst | ack) == syn jump syn_flood comment "!fw4: Rate limit TCP syn packets"
 {% endif %}
@@ -134,11 +133,12 @@ table inet fw4 {
 	chain forward {
 		type filter hook forward priority filter; policy {{ fw4.forward_policy(true) }};
 
-{% if (length(flowtable_devices) > 0): %}
-		meta l4proto { tcp, udp } flow offload @ft;
-{% endif %}
 {% fw4.includes('chain-prepend', 'forward') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle forwarded flows"
+{% if (length(flowtable_devices) > 0): %}
+		ct state established,related goto handle_offload comment "!fw4: Handle forwarded flows"
+{% else %}
+		ct state established,related accept comment "!fw4: Accept forwarded flows"
+{% endif %}
 {% for (let rule in fw4.rules("forward")): %}
 		{%+ include("rule.uc", { fw4, zone: (rule.src?.zone?.log_limit ? rule.src.zone : rule.dest?.zone), rule }) %}
 {% endfor %}
@@ -154,10 +154,13 @@ table inet fw4 {
 	chain output {
 		type filter hook output priority filter; policy {{ fw4.output_policy(true) }};
 
-		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
-
 {% fw4.includes('chain-prepend', 'output') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle outbound flows"
+{% if (fw4.default_option("drop_invalid")): %}
+		ct state vmap { established : accept, related : accept, invalid : drop } comment "!fw4: Handle outbound flows"
+{% else %}
+		ct state established,related accept comment "!fw4: Accept outbound flows"
+{% endif %}
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 {% for (let rule in fw4.rules("output")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
 {% endfor %}
@@ -207,6 +210,13 @@ table inet fw4 {
 		}} comment "!fw4: Reject any other traffic"
 	}
 
+{% if (length(flowtable_devices) > 0): %}
+	chain handle_offload {
+		flow add @ft accept
+		accept
+	}
+
+{% endif %}
 {% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")):
 	let r = fw4.default_option("synflood_rate");
 	let b = fw4.default_option("synflood_burst");
@@ -411,6 +421,9 @@ table inet fw4 {
 
 	chain mangle_prerouting {
 		type filter hook prerouting priority mangle; policy accept;
+{% if (fw4.default_option("drop_invalid")): %}
+		ct state invalid drop comment "!fw4: Drop packets in invalid flow state"
+{% endif %}
 {% fw4.includes('chain-prepend', 'mangle_prerouting') %}
 {% for (let rule in fw4.rules("mangle_prerouting")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
