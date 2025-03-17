@@ -1,6 +1,6 @@
 {%+ if (rule.family && !rule.has_addrs): -%}
 	meta nfproto {{ fw4.nfproto(rule.family) }} {%+ endif -%}
-{%+ if (!rule.proto.any && !rule.has_ports && !rule.icmp_types && !rule.icmp_codes): -%}
+{%+ if (!rule.proto.any && !rule.has_ports && !rule.icmp_types && !rule.icmp_codes && !rule.set_helper): -%}
 	meta l4proto {{ fw4.l4proto(rule.family, rule.proto) }} {%+ endif -%}
 {%+ if (rule.iifnames): -%}
 	iifname {{ fw4.set(rule.iifnames) }} {%+ endif -%}
