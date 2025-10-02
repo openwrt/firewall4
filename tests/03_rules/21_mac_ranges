@@ -1,0 +1,23 @@
+Testing MAC address range parsing.
+
+-- Testcase --
+{%
+	fw4.load(false);
+	print(fw4.parse_mac("aa:bb:cc:dd:ee:ff-11:22:33:44:55:66").mac, "\n");
+	let m = fw4.parse_mac("aa:bb:cc:dd:ee:ff11:22:33:44:55:66");
+	print(m ? m.mac : "null", "\n");
+%}
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{}
+-- End --
+
+-- Expect stdout --
+aa:bb:cc:dd:ee:ff-11:22:33:44:55:66
+null
+-- End --
