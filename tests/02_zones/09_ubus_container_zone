@@ -309,7 +309,7 @@ table inet fw4 {
 	}
 
 	chain dstnat_cont_c1 {
-		ip saddr 10.5.6.0/31 ip daddr 10.11.12.194 tcp dport 443 dnat 10.5.6.0:443 comment "!fw4: ubus:c1_gw[static] redirect 3 (reflection)"
+		ip saddr 10.5.6.0/31 ip daddr 10.11.12.194 tcp dport 443 dnat 10.5.6.0 comment "!fw4: ubus:c1_gw[static] redirect 3 (reflection)"
 	}
 
 	chain srcnat_cont_c1 {
@@ -317,7 +317,7 @@ table inet fw4 {
 	}
 
 	chain dstnat_wan {
-		meta nfproto ipv4 tcp dport 443 counter dnat 10.5.6.0:443 comment "!fw4: ubus:c1_gw[static] redirect 3"
+		meta nfproto ipv4 tcp dport 443 counter dnat 10.5.6.0 comment "!fw4: ubus:c1_gw[static] redirect 3"
 	}
 
 	chain srcnat_wan {
