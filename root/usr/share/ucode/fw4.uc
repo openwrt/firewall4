@@ -358,6 +358,22 @@ function ensure_tcpudp(x) {
 	return false;
 }
 
+function ensure_tcpudpicmp(x) {
+	if (length(filter(x, p => (p.name == "tcp" || p.name == "udp" || p.name == "icmp"))))
+		return true;
+
+	let rest = filter(x, p => !p.any),
+	    any = filter(x, p => p.any);
+
+	if (length(any) && !length(rest)) {
+		splice(x, 0);
+		push(x, { name: "tcp" }, { name: "udp" }, { name: "icmp" });
+		return true;
+	}
+
+	return false;
+}
+
 let is_family = (x, v) => (!x.family || x.family == v);
 let family_is_ipv4 = (x) => (!x.family || x.family == 4);
 let family_is_ipv6 = (x) => (!x.family || x.family == 6);
@@ -2868,6 +2884,7 @@ return {
 				switch (proto.name) {
 				case "tcp":
 				case "udp":
+				case "icmp":
 					sport = redir.src_port;
 					dport = redir.dest_port;
 					rport = redir.src_dport;
@@ -3089,8 +3106,8 @@ return {
 			return;
 		}
 
-		if ((snat.snat_port || snat.src_port || snat.dest_port) && !ensure_tcpudp(snat.proto)) {
-			this.warn_section(data, "specifies ports but no UDP/TCP protocol, ignoring section");
+		if ((snat.snat_port || snat.src_port || snat.dest_port) && !ensure_tcpudpicmp(snat.proto)) {
+			this.warn_section(data, "specifies ports but no UDP/TCP/ICMP protocol, ignoring section");
 			return;
 		}
 
@@ -3147,6 +3164,7 @@ return {
 			switch (proto.name) {
 			case "tcp":
 			case "udp":
+			case "icmp":
 				sport = snat.src_port;
 				dport = snat.dest_port;
 				rport = snat.snat_port;
