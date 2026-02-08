@@ -57,6 +57,7 @@ table inet fw4 {
 		type ipv4_addr . inet_service
 		size 1000
 		timeout 600s
+		counter
 		flags timeout
 		elements = {
 			1.2.3.4 . 80,

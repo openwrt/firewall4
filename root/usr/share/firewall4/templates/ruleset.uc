@@ -61,6 +61,9 @@ table inet fw4 {
 {%   if (set.timeout > 0): %}
 		timeout {{ set.timeout }}s
 {%   endif %}
+{%   if (set.counters): %}
+		counter
+{%   endif %}
 {%   if (set.interval): %}
 		auto-merge
 {%   endif %}
