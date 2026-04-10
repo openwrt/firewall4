@@ -1,4 +1,4 @@
-meta nfproto {{ fw4.nfproto(family) }} {%+ if (saddrs && saddrs[0]): -%}
+iif != 0 meta nfproto {{ fw4.nfproto(family) }} {%+ if (saddrs && saddrs[0]): -%}
 	{{ fw4.ipproto(family) }} saddr {{ fw4.set(map(saddrs[0], fw4.cidr)) }} {%+ endif -%}
 {%+ if (saddrs && saddrs[1]): -%}
 	{{ fw4.ipproto(family) }} saddr != {{ fw4.set(map(saddrs[1], fw4.cidr)) }} {%+ endif -%}

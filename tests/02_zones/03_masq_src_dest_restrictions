@@ -211,11 +211,11 @@ table inet fw4 {
 	}
 
 	chain srcnat_test1 {
-		meta nfproto ipv4 ip saddr { 10.1.0.0/24, 10.1.1.1 } ip saddr != { 10.1.0.1, 10.1.0.2 } ip daddr { 10.2.0.0/24, 10.2.1.1 } ip daddr != { 10.2.0.1, 10.2.0.2 } masquerade comment "!fw4: Masquerade IPv4 test1 traffic"
+		iif != 0 meta nfproto ipv4 ip saddr { 10.1.0.0/24, 10.1.1.1 } ip saddr != { 10.1.0.1, 10.1.0.2 } ip daddr { 10.2.0.0/24, 10.2.1.1 } ip daddr != { 10.2.0.1, 10.2.0.2 } masquerade comment "!fw4: Masquerade IPv4 test1 traffic"
 	}
 
 	chain srcnat_test2 {
-		meta nfproto ipv6 ip6 saddr { 2001:db8:0:1::/64, 2001:db8:0:2::/64 } ip6 saddr != { 2001:db8:0:1::1, 2001:db8:0:1::2 } ip6 daddr { 2001:db8:1:1::/64, 2001:db8:1:2::/64 } ip6 daddr != { 2001:db8:1:1::1, 2001:db8:1:1::2 } masquerade comment "!fw4: Masquerade IPv6 test2 traffic"
+		iif != 0 meta nfproto ipv6 ip6 saddr { 2001:db8:0:1::/64, 2001:db8:0:2::/64 } ip6 saddr != { 2001:db8:0:1::1, 2001:db8:0:1::2 } ip6 daddr { 2001:db8:1:1::/64, 2001:db8:1:2::/64 } ip6 daddr != { 2001:db8:1:1::1, 2001:db8:1:1::2 } masquerade comment "!fw4: Masquerade IPv6 test2 traffic"
 	}
 
 
