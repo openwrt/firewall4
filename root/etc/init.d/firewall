@@ -14,11 +14,11 @@ restart() {
 }
 
 start_service() {
-	fw4 ${QUIET} start
+	fw4 flush
 }
 
 stop_service() {
-	fw4 flush
+	fw4 ${QUIET} stop
 }
 
 reload_service() {

@@ -160,9 +160,7 @@ Testing various option constraints.
 -- End --
 
 -- Expect stdout --
-table inet fw4
-flush table inet fw4
-
+destroy table inet fw4
 table inet fw4 {
 	#
 	# Set definitions
