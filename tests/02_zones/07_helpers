@@ -78,9 +78,7 @@ Testing zone helper assignments
 -- End --
 
 -- Expect stdout --
-table inet fw4
-flush table inet fw4
-
+destroy table inet fw4
 table inet fw4 {
 	#
 	# CT helper definitions

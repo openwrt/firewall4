@@ -43,9 +43,7 @@ Testing that dropping of invalid conntrack state traffic can be inhibited.
 -- End --
 
 -- Expect stdout --
-table inet fw4
-flush table inet fw4
-
+destroy table inet fw4
 table inet fw4 {
 	#
 	# Defines
