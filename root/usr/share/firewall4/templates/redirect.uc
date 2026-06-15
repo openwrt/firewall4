@@ -73,7 +73,7 @@
 {%+  if (redirect.log): -%}
 	log prefix {{ fw4.quote(redirect.log, true) }} {%+ endif -%}
 {%   if (redirect.target == "redirect"): -%}
-	redirect{% if (redirect.rport): %} to {{ fw4.port(redirect.rport) }}{% endif %}
+	fib daddr type != local redirect{% if (redirect.rport): %} to {{ fw4.port(redirect.rport) }}{% endif %}
 {%-  elif (redirect.target == "accept" || redirect.target == "masquerade"): -%}
 	{{ redirect.target }}
 {%-  else -%}
