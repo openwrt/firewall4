@@ -1,0 +1,133 @@
+Testing software flowtable device selection for physical and virtual L3 links.
+
+-- Testcase --
+{%
+	let fw4 = require("fw4");
+
+	fw4.load(false);
+	print(join(",", fw4.resolve_offload_devices()), "\n");
+
+	fw4.state.defaults.flow_offloading_hw = true;
+	print(join(",", fw4.resolve_offload_devices()), "\n");
+%}
+-- File uci/firewall.json --
+{
+	"defaults": {
+		"flow_offloading": "1",
+		"flow_offloading_hw": "0"
+	},
+	"zone": [
+		{
+			"name": "lan",
+			"network": [ "lan", "ethernet", "docker" ]
+		},
+		{
+			"name": "wan",
+			"network": [ "pppoe", "vlan", "qmap", "wireguard" ]
+		}
+	]
+}
+-- File ubus/network.interface~dump.json --
+{
+	"interface": [
+		{
+			"interface": "lan",
+			"up": true,
+			"proto": "static",
+			"device": "br-lan",
+			"l3_device": "br-lan"
+		},
+		{
+			"interface": "ethernet",
+			"up": true,
+			"proto": "static",
+			"device": "lan2",
+			"l3_device": "lan2"
+		},
+		{
+			"interface": "docker",
+			"up": true,
+			"proto": "static",
+			"device": "br-docker",
+			"l3_device": "br-docker"
+		},
+		{
+			"interface": "pppoe",
+			"up": true,
+			"proto": "pppoe",
+			"device": "wan.1234",
+			"l3_device": "pppoe-wan"
+		},
+		{
+			"interface": "vlan",
+			"up": true,
+			"proto": "static",
+			"device": "eth0.400",
+			"l3_device": "eth0.400"
+		},
+		{
+			"interface": "qmap",
+			"up": true,
+			"proto": "qmi",
+			"l3_device": "rmnet-wwan0"
+		},
+		{
+			"interface": "wireguard",
+			"up": true,
+			"proto": "wireguard",
+			"l3_device": "wg0"
+		}
+	]
+}
+-- File ubus/service~get_data~type-firewall.json --
+{}
+-- File ubus/network.device~status.json --
+{
+	"br-lan": {
+		"devtype": "bridge"
+	},
+	"br-docker": {
+		"devtype": "bridge"
+	},
+	"wan.1234": {
+		"devtype": "vlan"
+	},
+	"wan": {
+		"devtype": "ethernet"
+	},
+	"pppoe-wan": {
+		"devtype": "ppp"
+	},
+	"rmnet-wwan0": {
+		"devtype": "rmnet"
+	},
+	"wg0": {
+		"devtype": "wireguard"
+	}
+}
+-- File fs/opendir~_sys_class_net_br-docker.json --
+[]
+-- File fs/opendir~_sys_class_net_lan2.json --
+[]
+-- File fs/opendir~_sys_class_net_wan_1234.json --
+[
+	"lower_wan"
+]
+-- File fs/opendir~_sys_class_net_wan.json --
+[]
+-- File fs/opendir~_sys_class_net_eth0_400.json --
+[]
+-- File fs/open~_sys_class_net_br-lan.txt --
+present
+-- File fs/open~_sys_class_net_br-docker.txt --
+present
+-- File fs/open~_sys_class_net_wan_1234.txt --
+present
+-- File fs/open~_sys_class_net_eth0_400.txt --
+present
+-- File fs/open~_sys_class_net_lan2.txt --
+present
+-- Expect stdout --
+br-docker,br-lan,eth0.400,lan2,pppoe-wan,rmnet-wwan0,wan,wan.1234,wg0
+br-docker,eth0,eth0.400,lan2,pppoe-wan,rmnet-wwan0,wan,wan.1234,wg0
+-- End --
