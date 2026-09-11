@@ -1835,19 +1835,6 @@ return {
 		return null_if_empty(filter(addrs, a => (this.is_loopback_addr(a) == invert)));
 	},
 
-
-	input_policy: function(reject_as_drop) {
-		return (!reject_as_drop || this.state.defaults.input != 'reject') ? this.state.defaults.input : 'drop';
-	},
-
-	output_policy: function(reject_as_drop) {
-		return (!reject_as_drop || this.state.defaults.output != 'reject') ? this.state.defaults.output : 'drop';
-	},
-
-	forward_policy: function(reject_as_drop) {
-		return (!reject_as_drop || this.state.defaults.forward != 'reject') ? this.state.defaults.forward : 'drop';
-	},
-
 	default_option: function(flag) {
 		return this.state.defaults[flag];
 	},

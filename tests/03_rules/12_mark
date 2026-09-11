@@ -94,29 +94,26 @@ table inet fw4 {
 	#
 
 	chain input {
-		type filter hook input priority filter; policy drop;
-
+		type filter hook input priority filter; policy drop
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
 	}
 
 	chain forward {
-		type filter hook forward priority filter; policy drop;
-
+		type filter hook forward priority filter; policy drop
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
 	}
 
 	chain output {
-		type filter hook output priority filter; policy drop;
-
+		type filter hook output priority filter; policy drop
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
 	}
 
 	chain prerouting {
-		type filter hook prerouting priority filter; policy accept;
+		type filter hook prerouting priority filter
 	}
 
 	chain handle_reject {
@@ -130,11 +127,11 @@ table inet fw4 {
 	#
 
 	chain dstnat {
-		type nat hook prerouting priority dstnat; policy accept;
+		type nat hook prerouting priority dstnat
 	}
 
 	chain srcnat {
-		type nat hook postrouting priority srcnat; policy accept;
+		type nat hook postrouting priority srcnat
 	}
 
 
@@ -143,11 +140,11 @@ table inet fw4 {
 	#
 
 	chain raw_prerouting {
-		type filter hook prerouting priority raw; policy accept;
+		type filter hook prerouting priority raw
 	}
 
 	chain raw_output {
-		type filter hook output priority raw; policy accept;
+		type filter hook output priority raw
 	}
 
 
@@ -156,15 +153,15 @@ table inet fw4 {
 	#
 
 	chain mangle_prerouting {
-		type filter hook prerouting priority mangle; policy accept;
+		type filter hook prerouting priority mangle
 	}
 
 	chain mangle_postrouting {
-		type filter hook postrouting priority mangle; policy accept;
+		type filter hook postrouting priority mangle
 	}
 
 	chain mangle_input {
-		type filter hook input priority mangle; policy accept;
+		type filter hook input priority mangle
 		counter meta mark set 0xaa comment "!fw4: Mark rule #1"
 		counter meta mark set mark and 0xffff0054 xor 0xab comment "!fw4: Mark rule #2"
 		counter meta mark set 0xac comment "!fw4: Mark rule #3"
@@ -174,11 +171,11 @@ table inet fw4 {
 	}
 
 	chain mangle_output {
-		type route hook output priority mangle; policy accept;
+		type route hook output priority mangle
 	}
 
 	chain mangle_forward {
-		type filter hook forward priority mangle; policy accept;
+		type filter hook forward priority mangle
 	}
 }
 -- End --

@@ -174,8 +174,7 @@ table inet fw4 {
 	#
 
 	chain input {
-		type filter hook input priority filter; policy drop;
-
+		type filter hook input priority filter; policy drop
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
@@ -184,16 +183,14 @@ table inet fw4 {
 	}
 
 	chain forward {
-		type filter hook forward priority filter; policy drop;
-
+		type filter hook forward priority filter; policy drop
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
 		iifname { "eth0", "eth1" } jump forward_lan comment "!fw4: Handle lan IPv4/IPv6 forward traffic"
 		iifname { "eth2", "eth3" } jump forward_wan comment "!fw4: Handle wan IPv4/IPv6 forward traffic"
 	}
 
 	chain output {
-		type filter hook output priority filter; policy drop;
-
+		type filter hook output priority filter; policy drop
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
@@ -202,7 +199,7 @@ table inet fw4 {
 	}
 
 	chain prerouting {
-		type filter hook prerouting priority filter; policy accept;
+		type filter hook prerouting priority filter
 		iifname { "eth0", "eth1" } jump helper_lan comment "!fw4: Handle lan IPv4/IPv6 helper assignment"
 		iifname { "eth2", "eth3" } jump helper_wan comment "!fw4: Handle wan IPv4/IPv6 helper assignment"
 	}
@@ -264,11 +261,11 @@ table inet fw4 {
 	#
 
 	chain dstnat {
-		type nat hook prerouting priority dstnat; policy accept;
+		type nat hook prerouting priority dstnat
 	}
 
 	chain srcnat {
-		type nat hook postrouting priority srcnat; policy accept;
+		type nat hook postrouting priority srcnat
 	}
 
 
@@ -277,11 +274,11 @@ table inet fw4 {
 	#
 
 	chain raw_prerouting {
-		type filter hook prerouting priority raw; policy accept;
+		type filter hook prerouting priority raw
 	}
 
 	chain raw_output {
-		type filter hook output priority raw; policy accept;
+		type filter hook output priority raw
 	}
 
 
@@ -290,7 +287,7 @@ table inet fw4 {
 	#
 
 	chain mangle_prerouting {
-		type filter hook prerouting priority mangle; policy accept;
+		type filter hook prerouting priority mangle
 		meta nfproto ipv4 meta l4proto tcp iifname { "eth0", "eth1" } counter ip dscp set 0x1 comment "!fw4: Mangle rule #4"
 		meta nfproto ipv6 meta l4proto tcp iifname { "eth0", "eth1" } counter ip6 dscp set 0x1 comment "!fw4: Mangle rule #4"
 		meta nfproto ipv4 meta l4proto udp iifname { "eth0", "eth1" } counter ip dscp set 0x1 comment "!fw4: Mangle rule #4"
@@ -298,7 +295,7 @@ table inet fw4 {
 	}
 
 	chain mangle_postrouting {
-		type filter hook postrouting priority mangle; policy accept;
+		type filter hook postrouting priority mangle
 		meta nfproto ipv4 meta l4proto tcp oifname { "eth2", "eth3" } counter ip dscp set 0x1 comment "!fw4: Mangle rule #3"
 		meta nfproto ipv6 meta l4proto tcp oifname { "eth2", "eth3" } counter ip6 dscp set 0x1 comment "!fw4: Mangle rule #3"
 		meta nfproto ipv4 meta l4proto udp oifname { "eth2", "eth3" } counter ip dscp set 0x1 comment "!fw4: Mangle rule #3"
@@ -318,7 +315,7 @@ table inet fw4 {
 	}
 
 	chain mangle_input {
-		type filter hook input priority mangle; policy accept;
+		type filter hook input priority mangle
 		meta nfproto ipv4 meta l4proto tcp iifname { "eth0", "eth1" } counter ip dscp set 0x1 comment "!fw4: Mangle rule #5"
 		meta nfproto ipv6 meta l4proto tcp iifname { "eth0", "eth1" } counter ip6 dscp set 0x1 comment "!fw4: Mangle rule #5"
 		meta nfproto ipv4 meta l4proto udp iifname { "eth0", "eth1" } counter ip dscp set 0x1 comment "!fw4: Mangle rule #5"
@@ -330,7 +327,7 @@ table inet fw4 {
 	}
 
 	chain mangle_output {
-		type route hook output priority mangle; policy accept;
+		type route hook output priority mangle
 		meta nfproto ipv4 meta l4proto tcp counter ip dscp set 0x1 comment "!fw4: Mangle rule #7"
 		meta nfproto ipv6 meta l4proto tcp counter ip6 dscp set 0x1 comment "!fw4: Mangle rule #7"
 		meta nfproto ipv4 meta l4proto udp counter ip dscp set 0x1 comment "!fw4: Mangle rule #7"
@@ -346,7 +343,7 @@ table inet fw4 {
 	}
 
 	chain mangle_forward {
-		type filter hook forward priority mangle; policy accept;
+		type filter hook forward priority mangle
 		meta nfproto ipv4 meta l4proto tcp counter ip dscp set 0x1 comment "!fw4: Mangle rule #1"
 		meta nfproto ipv6 meta l4proto tcp counter ip6 dscp set 0x1 comment "!fw4: Mangle rule #1"
 		meta nfproto ipv4 meta l4proto udp counter ip dscp set 0x1 comment "!fw4: Mangle rule #1"

@@ -6,16 +6,16 @@
 ## default firewall input, forward and output chains.
 
 # chain user_pre_input {
-#     type filter hook input priority -1; policy accept;
+#     type filter hook input priority -1
 #     tcp dport ssh ct state new log prefix "SSH connection attempt: "
 # }
 #
 # chain user_pre_forward {
-#     type filter hook forward priority -1; policy accept;
+#     type filter hook forward priority -1
 # }
 #
 # chain user_pre_output {
-#     type filter hook output priority -1; policy accept;
+#     type filter hook output priority -1
 # }
 
 
@@ -23,17 +23,17 @@
 ## default firewall input, forward and output chains.
 
 # chain user_post_input {
-#     type filter hook input priority 1; policy accept;
+#     type filter hook input priority 1
 #     ct state new log prefix "Firewall4 accepted ingress: "
 # }
 #
 # chain user_post_forward {
-#     type filter hook forward priority 1; policy accept;
+#     type filter hook forward priority 1
 #     ct state new log prefix "Firewall4 accepted forward: "
 # }
 #
 # chain user_post_output {
-#     type filter hook output priority 1; policy accept;
+#     type filter hook output priority 1
 #     ct state new log prefix "Firewall4 accepted egress: "
 # }
 
