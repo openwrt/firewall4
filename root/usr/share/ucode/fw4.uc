@@ -451,6 +451,27 @@ function resolve_lower_devices(devstatus, devname) {
 	return devs;
 }
 
+function resolve_software_offload_devices(devstatus, devname) {
+	let dir = fs.opendir(`/sys/class/net/${devname}`);
+	let devs = [];
+
+	if (dir) {
+		push(devs, devname);
+
+		if (devstatus[devname]?.devtype == 'vlan') {
+			let e;
+
+			while ((e = dir.read()) != null)
+				if (index(e, "lower_") === 0)
+					push(devs, ...resolve_software_offload_devices(devstatus, substr(e, 6)));
+		}
+
+		dir.close();
+	}
+
+	return devs;
+}
+
 function nft_json_command(...args) {
 	let cmd = [ "/usr/sbin/nft", "--terse", "--json", ...args ];
 	let nft = fs.popen(join(" ", cmd), "r");
@@ -511,16 +532,28 @@ return {
 
 		let devstatus = null;
 		let devices = null;
+		let fallback_devices = [];
 		let bus = ubus.connect();
+
+		this.hw_offload_fallback_devices = [];
 
 		if (bus) {
 			devstatus = bus.call("network.device", "status") || {};
 			bus.disconnect();
 		}
 
-		for (let zone in this.zones())
-			for (let device in zone.related_physdevs)
-				push(devices ||= [], ...resolve_lower_devices(devstatus, device));
+		this.offload_devstatus = devstatus;
+
+		for (let zone in this.zones()) {
+			for (let device in zone.related_physdevs) {
+				let lower_devices = resolve_lower_devices(devstatus, device);
+
+				if (length(lower_devices))
+					push(devices ||= [], ...lower_devices);
+				else if (fs.access(`/sys/class/net/${device}`))
+					push(fallback_devices, device);
+			}
+		}
 
 		if (!devices)
 			return null;
@@ -534,6 +567,8 @@ return {
 			return null;
 		}
 
+		this.hw_offload_fallback_devices = sort(uniq(fallback_devices));
+
 		return devices;
 	},
 
@@ -541,18 +576,41 @@ return {
 		if (!this.default_option("flow_offloading"))
 			return [];
 
+		this.offload_devstatus = null;
 		let devices = this.resolve_hw_offload_devices();
+		let hw = !!devices;
+		let devstatus = this.offload_devstatus;
 
-		if (!devices) {
+		if (!devstatus) {
+			let bus = ubus.connect();
+
+			if (bus) {
+				devstatus = bus.call("network.device", "status") || {};
+				bus.disconnect();
+			}
+		}
+
+		if (!hw)
 			devices = [];
 
-			for (let zone in this.zones())
-				for (let device in zone.related_physdevs)
-					if (fs.access(`/sys/class/net/${device}`))
-						push(devices, device);
+		for (let zone in this.zones()) {
+			for (let device in zone.related_physdevs) {
+				if (!hw || devstatus[device]?.devtype == 'vlan')
+					push(devices, ...resolve_software_offload_devices(devstatus, device));
+			}
 
-			devices = sort(uniq(devices));
+			for (let device in (zone.related_l3_devices ?? []))
+				if (devstatus[device])
+					push(devices, device);
 		}
+
+		if (hw) {
+			for (let device in (this.hw_offload_fallback_devices ?? []))
+				if (fs.access(`/sys/class/net/${device}`))
+					push(devices, device);
+		}
+
+		devices = sort(uniq(devices));
 
 		return devices;
 	},
@@ -2110,6 +2168,7 @@ return {
 
 		let match_devices = [];
 		let related_physdevs = [];
+		let related_l3_devices = [];
 		let related_subnets = [];
 		let related_ubus_networks = [];
 		let match_subnets, masq_src_subnets, masq_dest_subnets;
@@ -2132,8 +2191,18 @@ return {
 					});
 				}
 
-				if (net.physdev && !e.invert)
-					push(related_physdevs, net.physdev);
+				if (!e.invert) {
+					if (net.physdev)
+						push(related_physdevs, net.physdev);
+
+					/*
+					 * Retain logical L3 links which either have no physical
+					 * device or differ from it, such as WireGuard, QMI QMAP
+					 * and PPPoE devices.
+					 */
+					if (net.device && net.device != net.physdev)
+						push(related_l3_devices, net.device);
+				}
 
 				push(related_subnets, ...(net.ipaddrs || []));
 			}
@@ -2268,6 +2337,7 @@ return {
 
 		zone.related_subnets = related_subnets;
 		zone.related_physdevs = related_physdevs;
+		zone.related_l3_devices = related_l3_devices;
 
 		if (zone.masq || zone.masq6)
 			zone.dflags.snat = true;
