@@ -7,7 +7,7 @@ has_zone() {
 }
 
 [ "$ACTION" = ifup -o "$ACTION" = ifupdate ] || exit 0
-[ "$ACTION" = ifupdate -a -z "$IFUPDATE_ADDRESSES" -a -z "$IFUPDATE_DATA" ] && exit 0
+[ "$ACTION" = ifupdate -a -z "$IFUPDATE_ADDRESSES" ] && exit 0
 
 /etc/init.d/firewall enabled || exit 0
 
