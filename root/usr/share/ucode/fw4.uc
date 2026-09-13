@@ -2003,12 +2003,12 @@ return {
 			synflood_rate: [ "limit", "25/second" ],
 			synflood_burst: [ "int", "50" ],
 
-			tcp_syncookies: [ "bool", "1" ],
-			tcp_ecn: [ "int" ],
-			tcp_window_scaling: [ "bool", "1" ],
+			tcp_syncookies: [ "bool", null, UNSUPPORTED ],
+			tcp_ecn: [ "int", null, UNSUPPORTED ],
+			tcp_window_scaling: [ "bool", null, UNSUPPORTED ],
 
-			accept_redirects: [ "bool" ],
-			accept_source_route: [ "bool" ],
+			accept_redirects: [ "bool", null, UNSUPPORTED ],
+			accept_source_route: [ "bool", null, UNSUPPORTED ],
 
 			auto_helper: [ "bool", "1" ],
 			custom_chains: [ "bool", null, UNSUPPORTED ],
