@@ -2804,9 +2804,6 @@ return {
 			if (!redir.dest && redir.dest_ip && resolve_dest(redir))
 				this.warn_section(data, `does not specify a destination, assuming '${redir.dest.zone.name}'`);
 
-			if (!redir.dest_port)
-				redir.dest_port = redir.src_dport;
-
 			if (redir.reflection && redir.dest?.zone && redir.src.zone.masq) {
 				redir.dest.zone.dflags.accept = true;
 				redir.dest.zone.dflags.dnat = true;
@@ -3040,7 +3037,7 @@ return {
 
 								for (let daddrs in subnets_group_by_masking(rip[i]))
 									for (let saddrs in subnets_group_by_masking(iaddrs[i]))
-										add_rule(i ? 6 : 4, proto, saddrs, daddrs, [ to_hostaddr(snat_addr) ], null, rport, null, null, refredir);
+										add_rule(i ? 6 : 4, proto, saddrs, daddrs, [ to_hostaddr(snat_addr) ], null, rport ? rport : dport, null, null, refredir);
 							}
 						}
 					}
