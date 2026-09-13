@@ -1232,15 +1232,27 @@ return {
 	},
 
 	parse_mac: function(val) {
-		let mac = this.parse_invert(val);
-		let m = mac ? match(mac.val, /^([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})$/i) : null;
+		let macregex = /^([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})$/i;
+		let rangeregex = /^([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})(\-?)([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})?$/i;
 
-		if (!m)
+		let mac = this.parse_invert(val);
+		let m = mac ? match(mac.val, macregex) : null;
+		let mrange = mac ? match(mac.val,rangeregex) : null;
+
+		if (!m && !mrange)
 			return null;
 
-		mac.mac = sprintf('%02x:%02x:%02x:%02x:%02x:%02x',
+		if ( mrange && '-' === mrange[7]) {
+			mac.mac = sprintf('%02x:%02x:%02x:%02x:%02x:%02x-%02x:%02x:%02x:%02x:%02x:%02x',
+		                  hex(mrange[1]), hex(mrange[2]), hex(mrange[3]),
+		                  hex(mrange[4]), hex(mrange[5]), hex(mrange[6]),
+		                  hex(mrange[8]), hex(mrange[9]), hex(mrange[10]),
+		                  hex(mrange[11]), hex(mrange[12]), hex(mrange[13]));
+		} else {
+			mac.mac = sprintf('%02x:%02x:%02x:%02x:%02x:%02x',
 		                  hex(m[1]), hex(m[2]), hex(m[3]),
 		                  hex(m[4]), hex(m[5]), hex(m[6]));
+		}
 
 		return mac;
 	},
