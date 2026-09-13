@@ -33,7 +33,7 @@
 {%+ if (redirect.helper): -%}
 	ct helper{% if (redirect.helper.invert): %} !={% endif %} {{ fw4.quote(redirect.helper.name, true) }} {%+ endif -%}
 {%+ if (redirect.limit): -%}
-	limit rate {{ redirect.limit.rate }}/{{ redirect.limit.unit }}
+	limit rate{% if (redirect.limit.invert): %} over{% endif %} {{ redirect.limit.rate }}/{{ redirect.limit.unit }}
 	{%- if (redirect.limit_burst): %} burst {{ redirect.limit_burst }} packets{% endif %} {%+ endif -%}
 {%+ if (redirect.start_date && redirect.stop_date): -%}
 	meta time {{ fw4.datestamp(redirect.start_date) }}-{{ fw4.datestamp(redirect.stop_date) }} {%+
