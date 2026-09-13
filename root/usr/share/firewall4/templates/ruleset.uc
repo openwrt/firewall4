@@ -181,6 +181,7 @@ table inet fw4 {
 
 	chain prerouting {
 		type filter hook prerouting priority filter; policy accept;
+{% fw4.includes('chain-prepend', 'prerouting') %}
 {% for (let zone in fw4.zones()): %}
 {%  if (zone.dflags.helper): %}
 {%   for (let rule in zone.match_rules): %}
@@ -192,6 +193,7 @@ table inet fw4 {
 {%   endfor %}
 {%  endif %}
 {% endfor %}
+{% fw4.includes('chain-append', 'prerouting') %}
 	}
 
 	chain handle_reject {
@@ -363,6 +365,7 @@ table inet fw4 {
 
 	chain raw_prerouting {
 		type filter hook prerouting priority raw; policy accept;
+{% fw4.includes('chain-prepend', 'raw_prerouting') %}
 {% for (let zone in fw4.zones()): %}
 {%  if (zone.dflags["notrack"]): %}
 {%   for (let rule in zone.match_rules): %}
