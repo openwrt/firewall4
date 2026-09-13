@@ -115,7 +115,7 @@ table inet fw4 {
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
 {% fw4.includes('chain-prepend', 'input') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle inbound flows"
+		ct state established,related accept comment "!fw4: Accept inbound flows"
 {% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")): %}
 		tcp flags & (fin | syn | rst | ack) == syn jump syn_flood comment "!fw4: Rate limit TCP syn packets"
 {% endif %}
@@ -138,7 +138,7 @@ table inet fw4 {
 		meta l4proto { tcp, udp } flow offload @ft;
 {% endif %}
 {% fw4.includes('chain-prepend', 'forward') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle forwarded flows"
+		ct state established,related accept comment "!fw4: Accept forwarded flows"
 {% for (let rule in fw4.rules("forward")): %}
 		{%+ include("rule.uc", { fw4, zone: (rule.src?.zone?.log_limit ? rule.src.zone : rule.dest?.zone), rule }) %}
 {% endfor %}
@@ -157,7 +157,7 @@ table inet fw4 {
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
 {% fw4.includes('chain-prepend', 'output') %}
-		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle outbound flows"
+		ct state established,related accept comment "!fw4: Accept outbound flows"
 {% for (let rule in fw4.rules("output")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
 {% endfor %}
@@ -411,6 +411,9 @@ table inet fw4 {
 
 	chain mangle_prerouting {
 		type filter hook prerouting priority mangle; policy accept;
+{% if (fw4.default_option("drop_invalid")): %}
+		ct state invalid counter drop comment "!fw4: Drop invalid ingress packets"
+{% endif -%} 
 {% fw4.includes('chain-prepend', 'mangle_prerouting') %}
 {% for (let rule in fw4.rules("mangle_prerouting")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
@@ -445,6 +448,9 @@ table inet fw4 {
 
 	chain mangle_output {
 		type route hook output priority mangle; policy accept;
+{% if (fw4.default_option("drop_invalid")): %}
+		ct state invalid counter drop comment "!fw4: Drop invalid egress packets"
+{% endif -%} 
 {% fw4.includes('chain-prepend', 'mangle_output') %}
 {% for (let rule in fw4.rules("mangle_output")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
