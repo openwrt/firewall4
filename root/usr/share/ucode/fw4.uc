@@ -3148,8 +3148,8 @@ return {
 			this.warn_section(data, "must not use 'snat_ip' for non-snat target, ignoring section");
 			return;
 		}
-		else if (snat.target != "snat" && snat.snat_port) {
-			this.warn_section(data, "must not use 'snat_port' for non-snat target, ignoring section");
+		else if (snat.target != "snat" && snat.target != "masquerade" && snat.snat_port) {
+			this.warn_section(data, "must not use 'snat_port' for non-snat or non-masquerade target, ignoring section");
 			return;
 		}
 

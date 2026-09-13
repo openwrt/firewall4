@@ -74,8 +74,10 @@
 	log prefix {{ fw4.quote(redirect.log, true) }} {%+ endif -%}
 {%   if (redirect.target == "redirect"): -%}
 	redirect{% if (redirect.rport): %} to {{ fw4.port(redirect.rport) }}{% endif %}
-{%-  elif (redirect.target == "accept" || redirect.target == "masquerade"): -%}
+{%-  elif (redirect.target == "accept"): -%}
 	{{ redirect.target }}
+{%-  elif (redirect.target == "masquerade"): -%}
+	{{ redirect.target }}{% if (redirect.rport): %} to :{{ fw4.port(redirect.rport) }}{% endif %}
 {%-  else -%}
 	{{ redirect.target }} {{ redirect.raddr ? fw4.host(redirect.raddr, redirect.rport != null) : '' }}
 	{%- if (redirect.rport): %}:{{ fw4.port(redirect.rport) }}{% endif %}
