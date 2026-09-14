@@ -3021,6 +3021,17 @@ return {
 			/* build reflection rules */
 			if (redir.target == "dnat" && redir.reflection &&
 			    (length(rip[0]) || length(rip[1])) && redir.src?.zone && redir.dest?.zone) {
+				let reflection_sets = filter(ipsets, e => {
+					let set_types = map_setmatch(e.set, e.match, proto.name);
+
+					/* Only non-inverted destination endpoint sets can supply the
+					 * external address selector. Source matches need not apply to
+					 * clients in the reflection zone. */
+					return !e.match.invert && type(set_types) == "array" &&
+						!length(filter(set_types, t =>
+							t != "ip daddr" && t != "ip6 daddr" && t != `${proto.name} dport`));
+				});
+
 				let refredir = {
 					name: `${redir.name} (reflection)`,
 
@@ -3055,6 +3066,12 @@ return {
 					let refaddrs = (redir.reflection_src == "internal") ? iaddrs : eaddrs;
 
 					for (let i = 0; i <= 1; i++) {
+						let refsets = filter(reflection_sets, e => {
+							let set_types = map_setmatch(e.set, e.match, proto.name);
+							return (i ? "ip6 daddr" : "ip daddr") in set_types;
+						});
+						let ipset_only = length(refsets) && !length(dip);
+
 						if (redir.src.zone[i ? "masq6" : "masq"] && length(rip[i])) {
 							let snat_addr = refaddrs[i]?.[0];
 
@@ -3084,7 +3101,7 @@ return {
 							else if (!length(iaddrs[i])) {
 								this.warn_section(data, "internal address range cannot be determined, disabling reflection");
 							}
-							else if (!length(eaddrs[i])) {
+							else if (!ipset_only && !length(eaddrs[i])) {
 								this.warn_section(data, "external address range cannot be determined, disabling reflection");
 							}
 							else {
@@ -3093,8 +3110,8 @@ return {
 								refredir.target = "dnat";
 
 								for (let saddrs in subnets_group_by_masking(iaddrs[i]))
-									for (let daddrs in subnets_group_by_masking(eaddrs[i]))
-										add_rule(i ? 6 : 4, proto, saddrs, daddrs, rip[i], sport, dport, rport, null, refredir);
+									for (let daddrs in subnets_group_by_masking(ipset_only ? null : eaddrs[i]))
+										add_rule(i ? 6 : 4, proto, saddrs, daddrs, rip[i], sport, dport, rport, refsets, refredir);
 
 								refredir.src = null;
 								refredir.dest = rzone;
