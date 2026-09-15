@@ -2959,6 +2959,17 @@ return {
 			/* build reflection rules */
 			if (redir.target == "dnat" && redir.reflection &&
 			    (length(rip[0]) || length(rip[1])) && redir.src?.zone && redir.dest?.zone) {
+				let set_types = map_setmatch(ipset, redir.ipset, proto.name);
+				let reflection_ipset = null;
+
+				/* Only non-inverted destination endpoint sets can supply the
+				 * external address selector. Source matches need not apply to
+				 * clients in the reflection zone. */
+				if (!redir.ipset?.invert && type(set_types) == "array" &&
+				    !length(filter(set_types, t =>
+				        t != "ip daddr" && t != "ip6 daddr" && t != `${proto.name} dport`)))
+					reflection_ipset = ipset;
+
 				let refredir = {
 					name: `${redir.name} (reflection)`,
 
@@ -2993,6 +3004,10 @@ return {
 					let refaddrs = (redir.reflection_src == "internal") ? iaddrs : eaddrs;
 
 					for (let i = 0; i <= 1; i++) {
+						let refset = reflection_ipset && ((i ? "ip6 daddr" : "ip daddr") in set_types)
+							? reflection_ipset : null;
+						let ipset_only = refset && !length(dip);
+
 						if (redir.src.zone[i ? "masq6" : "masq"] && length(rip[i])) {
 							let snat_addr = refaddrs[i]?.[0];
 
@@ -3022,21 +3037,23 @@ return {
 							else if (!length(iaddrs[i])) {
 								this.warn_section(data, "internal address range cannot be determined, disabling reflection");
 							}
-							else if (!length(eaddrs[i])) {
+							else if (!ipset_only && !length(eaddrs[i])) {
 								this.warn_section(data, "external address range cannot be determined, disabling reflection");
 							}
 							else {
 								refredir.src = rzone;
 								refredir.dest = null;
 								refredir.target = "dnat";
+								refredir.ipset = refset ? redir.ipset : null;
 
 								for (let saddrs in subnets_group_by_masking(iaddrs[i]))
-									for (let daddrs in subnets_group_by_masking(eaddrs[i]))
-										add_rule(i ? 6 : 4, proto, saddrs, daddrs, rip[i], sport, dport, rport, null, refredir);
+									for (let daddrs in subnets_group_by_masking(ipset_only ? null : eaddrs[i]))
+										add_rule(i ? 6 : 4, proto, saddrs, daddrs, rip[i], sport, dport, rport, refset, refredir);
 
 								refredir.src = null;
 								refredir.dest = rzone;
 								refredir.target = "snat";
+								delete refredir.ipset;
 
 								for (let daddrs in subnets_group_by_masking(rip[i]))
 									for (let saddrs in subnets_group_by_masking(iaddrs[i]))
