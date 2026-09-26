@@ -433,7 +433,7 @@ table inet fw4 {
 	}
 
 	chain srcnat_wan {
-		meta nfproto ipv4 masquerade comment "!fw4: Masquerade IPv4 wan traffic"
+		iif != 0 meta nfproto ipv4 masquerade comment "!fw4: Masquerade IPv4 wan traffic"
 	}
 
 
