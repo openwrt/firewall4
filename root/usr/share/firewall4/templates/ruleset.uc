@@ -4,14 +4,8 @@
 	let defined_ipsets = fw4.ipsets();
 	let zones_with_limits = filter(fw4.zones(), z => z.log_limit);
 -%}
-
-table inet fw4
-flush table inet fw4
-{% if (fw4.check_flowtable()): %}
-delete flowtable inet fw4 ft
-{% endif %}
 {% fw4.includes('ruleset-prepend') %}
-
+destroy table inet fw4
 table inet fw4 {
 {% if (length(flowtable_devices) > 0): %}
 	#

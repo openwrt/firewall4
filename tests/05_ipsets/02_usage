@@ -102,9 +102,7 @@ Linux version 5.10.113 (jow@j7) (mipsel-openwrt-linux-musl-gcc (OpenWrt GCC 11.2
 -- End --
 
 -- Expect stdout --
-table inet fw4
-flush table inet fw4
-
+destroy table inet fw4
 table inet fw4 {
 	#
 	# Set definitions
