@@ -3362,7 +3362,11 @@ return {
 			chain: [ "identifier" ]
 		});
 
-		if (!inc.enabled) {
+		if (inc === false) {
+			this.warn_section(data, "skipped due to invalid options");
+			return;
+		}
+		else if (!inc.enabled) {
 			this.warn_section(data, "is disabled, ignoring section");
 			return;
 		}
