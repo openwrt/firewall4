@@ -65,10 +65,10 @@
 	meta mark{% if (rule.mark.invert): %} !={% endif %} {{ fw4.hex(rule.mark.mark) }} {%+ endif -%}
 {%+ if (rule.dscp): -%}
 	{{ fw4.ipproto(rule.family) }} dscp{% if (rule.dscp.invert): %} !={% endif %} {{ fw4.hex(rule.dscp.dscp) }} {%+ endif -%}
-{%+ if (rule.ipset): -%}
-	{{ fw4.concat(rule.ipset.fields) }}{{
-		rule.ipset.invert ? ' !=' : ''
-	}} @{{ rule.ipset.name }} {%+ endif -%}
+{%+ for (let set in rule.setmatches): -%}
+	{{ fw4.concat(set.fields) }}{{
+		set.invert ? ' !=' : ''
+	}} @{{ set.name }} {%+ endfor -%}
 {%+ if (rule.log && rule.log_limit): -%}
 	limit rate {{ rule.log_limit.rate }}/{{ rule.log_limit.unit }} log prefix {{ fw4.quote(rule.log, true) }}
 		{%+ include("rule.uc", { fw4, zone, rule: { ...rule, log: 0 } }) %}

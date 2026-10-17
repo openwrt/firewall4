@@ -1,0 +1,536 @@
+Testing multiple ipset references per rule and redirect. References are
+AND-ed; direction override and negation apply per reference; every reference
+is validated on its own (unknown set, port set without TCP/UDP, destination
+MAC, address family, contradicting negation); a single scalar reference keeps
+its old meaning. Mangle rules and redirects accept the list as well.
+
+-- Testcase --
+{%
+	include("./root/usr/share/firewall4/main.uc", {
+		getenv: function(varname) {
+			switch (varname) {
+			case 'ACTION':
+				return 'print';
+			}
+		}
+	})
+%}
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File fs/open~_proc_version.txt --
+Linux version 5.10.113 (jow@j7) (mipsel-openwrt-linux-musl-gcc (OpenWrt GCC 11.2.0 r17858+262-2c3e8bed3f) 11.2.0, GNU ld (GNU Binutils) 2.37) #0 SMP Tue May 17 19:05:07 2022
+-- End --
+
+-- File uci/firewall.json --
+{
+	"zone": [
+		{
+			"name": "lan",
+			"network": "lan"
+		},
+		{
+			"name": "wan",
+			"network": [
+				"wan",
+				"wan6"
+			],
+			"masq": 1
+		}
+	],
+	"ipset": [
+		{
+			"name": "src-pairs",
+			"comment": "Source IP/MAC pairs",
+			"match": [
+				"src_ip",
+				"src_mac"
+			],
+			"entry": [
+				"192.168.26.10 00:11:22:33:44:55"
+			]
+		},
+		{
+			"name": "dst-hosts",
+			"comment": "Destination hosts",
+			"match": [
+				"dest_ip"
+			],
+			"entry": [
+				"10.0.1.1",
+				"10.0.1.2"
+			]
+		},
+		{
+			"name": "blocked-nets",
+			"comment": "Destination networks",
+			"match": [
+				"dest_net"
+			],
+			"entry": [
+				"192.0.2.0/24"
+			]
+		},
+		{
+			"name": "v6-hosts",
+			"comment": "IPv6 destination hosts",
+			"family": "IPv6",
+			"match": [
+				"dest_ip"
+			],
+			"entry": [
+				"2001:db8::1"
+			]
+		},
+		{
+			"name": "dst-ports",
+			"comment": "Destination ports",
+			"match": [
+				"dest_port"
+			],
+			"entry": [
+				"22",
+				"443"
+			]
+		},
+		{
+			"name": "macs",
+			"comment": "Source MACs, family any",
+			"family": "any",
+			"match": [
+				"src_mac"
+			],
+			"entry": [
+				"00:11:22:33:44:55"
+			]
+		}
+	],
+	"rule": [
+		{
+			".description": "Two set references are AND-ed into one rule",
+			"name": "Rule with two sets",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"dest_port": "22",
+			"ipset": [
+				"src-pairs",
+				"dst-hosts"
+			],
+			"target": "ACCEPT"
+		},
+		{
+			".description": "Direction override and negation apply per list entry",
+			"name": "Rule with direction override and negation",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"dest_port": "443",
+			"ipset": [
+				"src-pairs",
+				"dst-hosts src",
+				"!blocked-nets"
+			],
+			"target": "ACCEPT"
+		},
+		{
+			".description": "A single scalar reference with direction keeps working unchanged",
+			"name": "Rule with legacy scalar reference",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "dst-hosts src",
+			"target": "ACCEPT"
+		},
+		{
+			".description": "A duplicate reference is ignored with a warning",
+			"name": "Rule with duplicate reference",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": [
+				"src-pairs",
+				"dst-hosts",
+				"dst-hosts"
+			],
+			"target": "ACCEPT"
+		},
+		{
+			".description": "An unknown set in the list skips the whole rule",
+			"name": "Rule with unknown set",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": [
+				"dst-hosts",
+				"no-such-set"
+			],
+			"target": "ACCEPT"
+		},
+		{
+			".description": "Sets of different families in one rule skip the rule",
+			"name": "Rule with family conflict",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": [
+				"dst-hosts",
+				"v6-hosts"
+			],
+			"target": "ACCEPT"
+		},
+		{
+			".description": "Mangle rules accept multiple set references",
+			"name": "Mark with two sets",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": [
+				"src-pairs",
+				"dst-hosts"
+			],
+			"target": "MARK",
+			"set_mark": "0x1"
+		},
+		{
+			".description": "A port set in the list still requires TCP or UDP",
+			"name": "Rule with port set and icmp",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "icmp",
+			"ipset": [
+				"src-pairs",
+				"dst-ports"
+			],
+			"target": "ACCEPT"
+		},
+		{
+			".description": "Destination MAC matching is rejected for any list entry",
+			"name": "Rule with dst MAC set",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": [
+				"dst-hosts",
+				"src-pairs src dst"
+			],
+			"target": "ACCEPT"
+		},
+		{
+			".description": "An IPv6 set combined with a family-agnostic set yields an IPv6 rule",
+			"name": "Rule with v6 set and mac set",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"dest_port": "22",
+			"ipset": [
+				"v6-hosts",
+				"macs"
+			],
+			"target": "ACCEPT"
+		},
+		{
+			".description": "A negated scalar reference keeps working unchanged",
+			"name": "Rule with negated scalar reference",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "!dst-hosts",
+			"target": "ACCEPT"
+		},
+		{
+			".description": "Explicit family any with an IPv4 set and a family-agnostic MAC set yields one IPv4 rule",
+			"name": "Family any with v4 set and mac set",
+			"family": "any",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"dest_port": "22",
+			"ipset": [
+				"dst-hosts",
+				"macs"
+			],
+			"target": "ACCEPT"
+		},
+		{
+			".description": "The same set negated and non-negated in one direction can never match and drops the section",
+			"name": "Rule with contradicting references",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": [
+				"dst-hosts",
+				"!dst-hosts"
+			],
+			"target": "ACCEPT"
+		}
+	],
+	"redirect": [
+		{
+			".description": "Redirects accept multiple set references as well",
+			"name": "Redirect with two sets",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"src_dport": "53",
+			"dest_port": "53",
+			"ipset": [
+				"src-pairs",
+				"dst-hosts src"
+			],
+			"target": "dnat"
+		}
+	]
+}
+-- End --
+
+-- Expect stderr --
+[!] Section @rule[3] (Rule with duplicate reference) references set 'dst-hosts' more than once, ignoring duplicate
+[!] Section @rule[4] (Rule with unknown set) references unknown set 'no-such-set'
+[!] Section @rule[5] (Rule with family conflict) references IPv6 only set match but is restricted to IPv4 by set match, skipping
+[!] Section @rule[7] (Rule with port set and icmp) references named set with port match but no UDP/TCP protocol, ignoring section
+[!] Section @rule[8] (Rule with dst MAC set) destination MAC address matching not supported
+[!] Section @rule[12] (Rule with contradicting references) references set 'dst-hosts' both negated and non-negated, rule can never match
+-- End --
+
+-- Expect stdout --
+table inet fw4
+flush table inet fw4
+
+table inet fw4 {
+	#
+	# Set definitions
+	#
+
+	set src-pairs {
+		comment "Source IP/MAC pairs"
+		type ipv4_addr . ether_addr
+		elements = {
+			192.168.26.10 . 00:11:22:33:44:55,
+		}
+	}
+
+	set dst-hosts {
+		comment "Destination hosts"
+		type ipv4_addr
+		elements = {
+			10.0.1.1,
+			10.0.1.2,
+		}
+	}
+
+	set blocked-nets {
+		comment "Destination networks"
+		type ipv4_addr
+		auto-merge
+		flags interval
+		elements = {
+			192.0.2.0/24,
+		}
+	}
+
+	set v6-hosts {
+		comment "IPv6 destination hosts"
+		type ipv6_addr
+		elements = {
+			2001:db8::1,
+		}
+	}
+
+	set dst-ports {
+		comment "Destination ports"
+		type inet_service
+		elements = {
+			22,
+			443,
+		}
+	}
+
+	set macs {
+		comment "Source MACs, family any"
+		type ether_addr
+		elements = {
+			00:11:22:33:44:55,
+		}
+	}
+
+
+	#
+	# Defines
+	#
+
+	define lan_devices = { "br-lan" }
+	define lan_subnets = { 10.0.0.0/24, 192.168.26.0/24, 2001:db8:1000::/60, fd63:e2f:f706::/60 }
+
+	define wan_devices = { "pppoe-wan" }
+	define wan_subnets = { 10.11.12.0/24, 2001:db8:54:321::/64 }
+
+
+	#
+	# User includes
+	#
+
+	include "/etc/nftables.d/*.nft"
+
+
+	#
+	# Filter rules
+	#
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		iifname "br-lan" jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
+		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		iifname "br-lan" jump forward_lan comment "!fw4: Handle lan IPv4/IPv6 forward traffic"
+		iifname "pppoe-wan" jump forward_wan comment "!fw4: Handle wan IPv4/IPv6 forward traffic"
+	}
+
+	chain output {
+		type filter hook output priority filter; policy drop;
+
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
+		oifname "br-lan" jump output_lan comment "!fw4: Handle lan IPv4/IPv6 output traffic"
+		oifname "pppoe-wan" jump output_wan comment "!fw4: Handle wan IPv4/IPv6 output traffic"
+	}
+
+	chain prerouting {
+		type filter hook prerouting priority filter; policy accept;
+	}
+
+	chain handle_reject {
+		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
+		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
+	}
+
+	chain input_lan {
+		ct status dnat accept comment "!fw4: Accept port redirections"
+		jump drop_from_lan
+	}
+
+	chain output_lan {
+		jump drop_to_lan
+	}
+
+	chain forward_lan {
+		meta nfproto ipv4 tcp dport 22 ip saddr . ether saddr @src-pairs ip daddr @dst-hosts counter jump accept_to_wan comment "!fw4: Rule with two sets"
+		meta nfproto ipv4 tcp dport 443 ip saddr . ether saddr @src-pairs ip saddr @dst-hosts ip daddr != @blocked-nets counter jump accept_to_wan comment "!fw4: Rule with direction override and negation"
+		meta nfproto ipv4 meta l4proto tcp ip saddr @dst-hosts counter jump accept_to_wan comment "!fw4: Rule with legacy scalar reference"
+		meta nfproto ipv4 meta l4proto tcp ip saddr . ether saddr @src-pairs ip daddr @dst-hosts counter jump accept_to_wan comment "!fw4: Rule with duplicate reference"
+		meta nfproto ipv6 tcp dport 22 ip6 daddr @v6-hosts ether saddr @macs counter jump accept_to_wan comment "!fw4: Rule with v6 set and mac set"
+		meta nfproto ipv4 meta l4proto tcp ip daddr != @dst-hosts counter jump accept_to_wan comment "!fw4: Rule with negated scalar reference"
+		meta nfproto ipv4 tcp dport 22 ip daddr @dst-hosts ether saddr @macs counter jump accept_to_wan comment "!fw4: Family any with v4 set and mac set"
+		ct status dnat accept comment "!fw4: Accept port forwards"
+		jump drop_to_lan
+	}
+
+	chain drop_from_lan {
+		iifname "br-lan" counter drop comment "!fw4: drop lan IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_lan {
+		oifname "br-lan" counter drop comment "!fw4: drop lan IPv4/IPv6 traffic"
+	}
+
+	chain input_wan {
+		jump drop_from_wan
+	}
+
+	chain output_wan {
+		jump drop_to_wan
+	}
+
+	chain forward_wan {
+		jump drop_to_wan
+	}
+
+	chain accept_to_wan {
+		meta nfproto ipv4 oifname "pppoe-wan" ct state invalid counter drop comment "!fw4: Prevent NAT leakage"
+		oifname "pppoe-wan" counter accept comment "!fw4: accept wan IPv4/IPv6 traffic"
+	}
+
+	chain drop_from_wan {
+		iifname "pppoe-wan" counter drop comment "!fw4: drop wan IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_wan {
+		oifname "pppoe-wan" counter drop comment "!fw4: drop wan IPv4/IPv6 traffic"
+	}
+
+
+	#
+	# NAT rules
+	#
+
+	chain dstnat {
+		type nat hook prerouting priority dstnat; policy accept;
+		iifname "br-lan" jump dstnat_lan comment "!fw4: Handle lan IPv4/IPv6 dstnat traffic"
+	}
+
+	chain srcnat {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "pppoe-wan" jump srcnat_wan comment "!fw4: Handle wan IPv4/IPv6 srcnat traffic"
+	}
+
+	chain dstnat_lan {
+		meta nfproto ipv4 tcp dport 53 ip saddr . ether saddr @src-pairs ip saddr @dst-hosts counter redirect to 53 comment "!fw4: Redirect with two sets"
+	}
+
+	chain srcnat_wan {
+		meta nfproto ipv4 masquerade comment "!fw4: Masquerade IPv4 wan traffic"
+	}
+
+
+	#
+	# Raw rules (notrack)
+	#
+
+	chain raw_prerouting {
+		type filter hook prerouting priority raw; policy accept;
+	}
+
+	chain raw_output {
+		type filter hook output priority raw; policy accept;
+	}
+
+
+	#
+	# Mangle rules
+	#
+
+	chain mangle_prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+	}
+
+	chain mangle_postrouting {
+		type filter hook postrouting priority mangle; policy accept;
+	}
+
+	chain mangle_input {
+		type filter hook input priority mangle; policy accept;
+	}
+
+	chain mangle_output {
+		type route hook output priority mangle; policy accept;
+	}
+
+	chain mangle_forward {
+		type filter hook forward priority mangle; policy accept;
+		meta nfproto ipv4 meta l4proto tcp iifname "br-lan" oifname "pppoe-wan" ip saddr . ether saddr @src-pairs ip daddr @dst-hosts counter meta mark set 0x1 comment "!fw4: Mark with two sets"
+	}
+}
+-- End --
