@@ -1178,11 +1178,16 @@ return {
 
 		let dir = filter(split(rv.val, /[ \t,]+/), t => length(t));
 
-		for (let i = 0; i < 3 && i < length(dir); i++) {
-			if (dir[i] == "dst" || dir[i] == "dest")
+		if (length(dir) > 3)
+			return null;
+
+		for (let i, t in dir) {
+			if (t == "dst" || t == "dest")
 				(rv.dir ||= [])[i] = "dst";
-			else if (dir[i] == "src")
+			else if (t == "src")
 				(rv.dir ||= [])[i] = "src";
+			else
+				return null;
 		}
 
 		return length(rv.name) ? rv : null;
