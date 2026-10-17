@@ -154,7 +154,7 @@ Testing various option constraints.
 [!] Section @rule[1] (Rule #2) is restricted to IPv6 but referenced source IP is IPv4 only, skipping
 [!] Section @rule[2] (Rule #3) is restricted to IPv6 but referenced source zone is IPv4 only, skipping
 [!] Section @rule[3] (Rule #4) is restricted to IPv6 but referenced set match is IPv4 only, skipping
-[!] Section @redirect[0] (Redirect #1) is restricted to IPv6 but referenced source zone is IPv4 only, skipping
+[!] Section @redirect[0] (Redirect #1) references IPv4 only source zone but is restricted to IPv6 by rewrite IP, skipping
 [!] Section @nat[0] (NAT #1) is restricted to IPv6 but referenced source zone is IPv4 only, skipping
 [!] Section @nat[1] (NAT #2) is restricted to IPv4 but referenced source IP is IPv6 only, skipping
 -- End --

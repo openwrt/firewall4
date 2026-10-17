@@ -390,7 +390,7 @@ function infer_family(f, objects) {
 
 			if (!res) {
 				res = obj.family;
-				by = obj.desc;
+				by = desc;
 				continue;
 			}
 
