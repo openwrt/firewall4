@@ -1,0 +1,265 @@
+Testing rules and redirects with several protocols that reference a port
+set. A port set cannot match a protocol without ports; that protocol is
+skipped with a warning instead of being emitted without a usable set match.
+
+-- Testcase --
+{%
+	include("./root/usr/share/firewall4/main.uc", {
+		getenv: function(varname) {
+			switch (varname) {
+			case 'ACTION':
+				return 'print';
+			}
+		}
+	})
+%}
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File fs/open~_proc_version.txt --
+Linux version 5.10.113 (jow@j7) (mipsel-openwrt-linux-musl-gcc (OpenWrt GCC 11.2.0 r17858+262-2c3e8bed3f) 11.2.0, GNU ld (GNU Binutils) 2.37) #0 SMP Tue May 17 19:05:07 2022
+-- End --
+
+-- File uci/firewall.json --
+{
+	"zone": [
+		{ "name": "lan", "network": "lan" },
+		{ "name": "wan", "network": [ "wan", "wan6" ], "masq": 1 }
+	],
+	"ipset": [
+		{ "name": "dst-hosts", "comment": "Destination hosts", "match": [ "dest_ip" ], "entry": [ "10.0.1.1", "10.0.1.2" ] },
+		{ "name": "dst-ports", "comment": "Destination ports", "match": [ "dest_port" ], "entry": [ "22", "443" ] },
+		{ "name": "ip-ports", "comment": "Destination address and port tuples", "match": [ "dest_ip", "dest_port" ], "entry": [ "10.0.1.1 22", "10.0.1.2 443" ] }
+	],
+	"rule": [
+		{ ".description": "An address set applies to every protocol of a mixed protocol rule", "name": "Mixed protocols with an address set", "src": "lan", "dest": "wan", "proto": "tcp icmp", "ipset": "dst-hosts", "target": "ACCEPT" },
+		{ ".description": "A port set does not apply to a protocol without ports; that protocol is skipped with a warning instead of being emitted as an invalid rule", "name": "Mixed protocols with a port set", "src": "lan", "dest": "wan", "proto": "tcp icmp", "ipset": "dst-ports", "target": "ACCEPT" },
+		{ ".description": "An address and port tuple set keeps both fields for the applicable protocol and skips the other", "name": "Mixed protocols with an address and port set", "src": "lan", "dest": "wan", "proto": "tcp icmp", "ipset": "ip-ports", "target": "ACCEPT" },
+		{ ".description": "The default protocol (tcp udp) emits a rule per protocol for a port set", "name": "Default protocol with a port set", "src": "lan", "dest": "wan", "ipset": "dst-ports", "target": "ACCEPT" }
+	],
+	"redirect": [
+		{ ".description": "Redirects skip the protocol without ports as well", "name": "Mixed protocol redirect with a port set", "src": "lan", "dest": "wan", "proto": "tcp icmp", "src_dport": "53", "dest_port": "53", "ipset": "dst-ports", "target": "dnat" }
+	]
+}
+-- End --
+
+-- Expect stderr --
+[!] Section @rule[1] (Mixed protocols with a port set) references set 'dst-ports' with port match which does not apply to protocol 'icmp', skipping this protocol
+[!] Section @rule[2] (Mixed protocols with an address and port set) references set 'ip-ports' with port match which does not apply to protocol 'icmp', skipping this protocol
+[!] Section @redirect[0] (Mixed protocol redirect with a port set) references set 'dst-ports' with port match which does not apply to protocol 'icmp', skipping this protocol
+-- End --
+
+-- Expect stdout --
+table inet fw4
+flush table inet fw4
+
+table inet fw4 {
+	#
+	# Set definitions
+	#
+
+	set dst-hosts {
+		comment "Destination hosts"
+		type ipv4_addr
+		elements = {
+			10.0.1.1,
+			10.0.1.2,
+		}
+	}
+
+	set dst-ports {
+		comment "Destination ports"
+		type inet_service
+		elements = {
+			22,
+			443,
+		}
+	}
+
+	set ip-ports {
+		comment "Destination address and port tuples"
+		type ipv4_addr . inet_service
+		elements = {
+			10.0.1.1 . 22,
+			10.0.1.2 . 443,
+		}
+	}
+
+
+	#
+	# Defines
+	#
+
+	define lan_devices = { "br-lan" }
+	define lan_subnets = { 10.0.0.0/24, 192.168.26.0/24, 2001:db8:1000::/60, fd63:e2f:f706::/60 }
+
+	define wan_devices = { "pppoe-wan" }
+	define wan_subnets = { 10.11.12.0/24, 2001:db8:54:321::/64 }
+
+
+	#
+	# User includes
+	#
+
+	include "/etc/nftables.d/*.nft"
+
+
+	#
+	# Filter rules
+	#
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		iifname "br-lan" jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
+		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		iifname "br-lan" jump forward_lan comment "!fw4: Handle lan IPv4/IPv6 forward traffic"
+		iifname "pppoe-wan" jump forward_wan comment "!fw4: Handle wan IPv4/IPv6 forward traffic"
+	}
+
+	chain output {
+		type filter hook output priority filter; policy drop;
+
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
+		oifname "br-lan" jump output_lan comment "!fw4: Handle lan IPv4/IPv6 output traffic"
+		oifname "pppoe-wan" jump output_wan comment "!fw4: Handle wan IPv4/IPv6 output traffic"
+	}
+
+	chain prerouting {
+		type filter hook prerouting priority filter; policy accept;
+	}
+
+	chain handle_reject {
+		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
+		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
+	}
+
+	chain input_lan {
+		ct status dnat accept comment "!fw4: Accept port redirections"
+		jump drop_from_lan
+	}
+
+	chain output_lan {
+		jump drop_to_lan
+	}
+
+	chain forward_lan {
+		meta nfproto ipv4 meta l4proto tcp ip daddr @dst-hosts counter jump accept_to_wan comment "!fw4: Mixed protocols with an address set"
+		meta nfproto ipv4 meta l4proto icmp ip daddr @dst-hosts counter jump accept_to_wan comment "!fw4: Mixed protocols with an address set"
+		meta nfproto ipv4 meta l4proto tcp tcp dport @dst-ports counter jump accept_to_wan comment "!fw4: Mixed protocols with a port set"
+		meta nfproto ipv4 meta l4proto tcp ip daddr . tcp dport @ip-ports counter jump accept_to_wan comment "!fw4: Mixed protocols with an address and port set"
+		meta nfproto ipv4 meta l4proto tcp tcp dport @dst-ports counter jump accept_to_wan comment "!fw4: Default protocol with a port set"
+		meta nfproto ipv4 meta l4proto udp udp dport @dst-ports counter jump accept_to_wan comment "!fw4: Default protocol with a port set"
+		ct status dnat accept comment "!fw4: Accept port forwards"
+		jump drop_to_lan
+	}
+
+	chain drop_from_lan {
+		iifname "br-lan" counter drop comment "!fw4: drop lan IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_lan {
+		oifname "br-lan" counter drop comment "!fw4: drop lan IPv4/IPv6 traffic"
+	}
+
+	chain input_wan {
+		jump drop_from_wan
+	}
+
+	chain output_wan {
+		jump drop_to_wan
+	}
+
+	chain forward_wan {
+		jump drop_to_wan
+	}
+
+	chain accept_to_wan {
+		meta nfproto ipv4 oifname "pppoe-wan" ct state invalid counter drop comment "!fw4: Prevent NAT leakage"
+		oifname "pppoe-wan" counter accept comment "!fw4: accept wan IPv4/IPv6 traffic"
+	}
+
+	chain drop_from_wan {
+		iifname "pppoe-wan" counter drop comment "!fw4: drop wan IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_wan {
+		oifname "pppoe-wan" counter drop comment "!fw4: drop wan IPv4/IPv6 traffic"
+	}
+
+
+	#
+	# NAT rules
+	#
+
+	chain dstnat {
+		type nat hook prerouting priority dstnat; policy accept;
+		iifname "br-lan" jump dstnat_lan comment "!fw4: Handle lan IPv4/IPv6 dstnat traffic"
+	}
+
+	chain srcnat {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "pppoe-wan" jump srcnat_wan comment "!fw4: Handle wan IPv4/IPv6 srcnat traffic"
+	}
+
+	chain dstnat_lan {
+		meta nfproto ipv4 tcp dport 53 tcp dport @dst-ports counter redirect to 53 comment "!fw4: Mixed protocol redirect with a port set"
+	}
+
+	chain srcnat_wan {
+		meta nfproto ipv4 masquerade comment "!fw4: Masquerade IPv4 wan traffic"
+	}
+
+
+	#
+	# Raw rules (notrack)
+	#
+
+	chain raw_prerouting {
+		type filter hook prerouting priority raw; policy accept;
+	}
+
+	chain raw_output {
+		type filter hook output priority raw; policy accept;
+	}
+
+
+	#
+	# Mangle rules
+	#
+
+	chain mangle_prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+	}
+
+	chain mangle_postrouting {
+		type filter hook postrouting priority mangle; policy accept;
+	}
+
+	chain mangle_input {
+		type filter hook input priority mangle; policy accept;
+	}
+
+	chain mangle_output {
+		type route hook output priority mangle; policy accept;
+	}
+
+	chain mangle_forward {
+		type filter hook forward priority mangle; policy accept;
+	}
+}
+-- End --

@@ -2632,6 +2632,13 @@ return {
 			let sip, dip, sports, dports, itypes4, itypes6;
 			let family = rule.family;
 
+			/* a port set cannot match a protocol without ports; skip the protocol
+			   instead of emitting an invalid rule */
+			if (ipset && ('inet_service' in ipset.types) && proto.name != 'tcp' && proto.name != 'udp') {
+				this.warn_section(data, `references set '${ipset.name}' with port match which does not apply to protocol '${proto.name}', skipping this protocol`);
+				continue;
+			}
+
 			switch (proto.name) {
 			case "icmp":
 				itypes4 = filter(rule.icmp_type || [], family_is_ipv4);
@@ -2951,6 +2958,13 @@ return {
 		for (let proto in redir.proto) {
 			let sip, dip, rip, iip, eip, refip, sport, dport, rport;
 			let family = redir.family;
+
+			/* a port set cannot match a protocol without ports; skip the protocol
+			   instead of emitting an invalid rule */
+			if (ipset && ('inet_service' in ipset.types) && proto.name != 'tcp' && proto.name != 'udp') {
+				this.warn_section(data, `references set '${ipset.name}' with port match which does not apply to protocol '${proto.name}', skipping this protocol`);
+				continue;
+			}
 
 			if (proto.name == "ipv6-icmp")
 				family = 6;
