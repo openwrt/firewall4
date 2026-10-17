@@ -1175,7 +1175,7 @@ return {
 			return '';
 		}));
 
-		let dir = split(rv.val, /[ \t,]/);
+		let dir = filter(split(rv.val, /[ \t,]+/), t => length(t));
 
 		for (let i = 0; i < 3 && i < length(dir); i++) {
 			if (dir[i] == "dst" || dir[i] == "dest")
