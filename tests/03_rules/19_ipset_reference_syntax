@@ -1,6 +1,7 @@
-Testing the syntax of a scalar ipset reference: the set name may be
-followed by up to three direction tokens (src, dst, dest), separated by
-spaces or commas. Repeated separators must not shift the field index.
+Testing the syntax of a scalar ipset reference. Only direction tokens
+(src, dst, dest), at most three, separated by spaces or commas, may follow
+the set name. Anything else makes the value invalid and drops the section
+instead of silently ignoring the unknown tokens.
 
 -- Testcase --
 {%
@@ -90,12 +91,45 @@ Linux version 5.10.113 (jow@j7) (mipsel-openwrt-linux-musl-gcc (OpenWrt GCC 11.2
 			"proto": "tcp",
 			"ipset": "pairs src,src",
 			"target": "ACCEPT"
+		},
+		{
+			".description": "Two set names in one scalar value are not a list; the value is invalid",
+			"name": "Reference with two set names",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "hosts pairs",
+			"target": "ACCEPT"
+		},
+		{
+			".description": "An unknown token after the set name is invalid",
+			"name": "Reference with unknown token",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "hosts source",
+			"target": "ACCEPT"
+		},
+		{
+			".description": "More than three direction tokens are invalid",
+			"name": "Reference with four direction tokens",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "pairs src src src src",
+			"target": "ACCEPT"
 		}
 	]
 }
 -- End --
 
 -- Expect stderr --
+[!] Section @rule[3] (Reference with two set names) option 'ipset' specifies invalid value 'hosts pairs'
+[!] Section @rule[3] (Reference with two set names) skipped due to invalid options
+[!] Section @rule[4] (Reference with unknown token) option 'ipset' specifies invalid value 'hosts source'
+[!] Section @rule[4] (Reference with unknown token) skipped due to invalid options
+[!] Section @rule[5] (Reference with four direction tokens) option 'ipset' specifies invalid value 'pairs src src src src'
+[!] Section @rule[5] (Reference with four direction tokens) skipped due to invalid options
 -- End --
 
 -- Expect stdout --
