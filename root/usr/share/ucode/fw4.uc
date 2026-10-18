@@ -1773,6 +1773,21 @@ return {
 	},
 
 	l4proto: function(family, proto) {
+		if (proto.names) {
+			let names = [];
+
+			for (let name in proto.names) {
+				if (name == 'icmp' && !family)
+					push(names, 'icmp', 'ipv6-icmp');
+				else if (name == 'icmp' && family == 6)
+					push(names, 'ipv6-icmp');
+				else
+					push(names, name);
+			}
+
+			return this.set(uniq(names));
+		}
+
 		switch (proto.name) {
 		case 'icmp':
 			switch (family ?? 0) {
@@ -2431,6 +2446,23 @@ return {
 			return;
 		}
 
+		let protos_neg = filter(rule.proto, p => p.invert);
+
+		if (length(protos_neg)) {
+			if (length(protos_neg) != length(rule.proto) || length(filter(protos_neg, p => p.any))) {
+				this.warn_section(data, "must not mix negated and plain protocols or negate 'all'");
+				return;
+			}
+			else if (rule.src_port || rule.dest_port || rule.icmp_type) {
+				this.warn_section(data, "must not combine a negated protocol with port or ICMP type matches");
+				return;
+			}
+
+			/* a negated protocol list matches none of its protocols, so it becomes one rule */
+			if (length(protos_neg) > 1)
+				rule.proto = [ { invert: true, names: map(protos_neg, p => p.name) } ];
+		}
+
 		switch (this.parse_bool(rule.log)) {
 		case true:
 			rule.log = `${rule.name}: `;
@@ -2450,7 +2482,7 @@ return {
 				return;
 			}
 
-			if (('inet_service' in ipset.types) && !ensure_tcpudp(rule.proto)) {
+			if (('inet_service' in ipset.types) && (length(protos_neg) || !ensure_tcpudp(rule.proto))) {
 				this.warn_section(data, "references named set with port match but no UDP/TCP protocol, ignoring section");
 				return;
 			}
