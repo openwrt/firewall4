@@ -437,7 +437,42 @@ function map_setmatch(set, match, proto) {
 	return fields;
 }
 
-function resolve_lower_devices(devstatus, devname) {
+const IFNAMSIZ = 16;
+const wds_port_re = /^(.+)\.sta[0-9]+$/;
+const wireless_uevent_re = /^DEVTYPE=wlan$/;
+
+function device_is_wireless(devname) {
+	let uevent = fs.readfile(`/sys/class/net/${devname}/uevent`);
+
+	return uevent != null && match(uevent, wireless_uevent_re) != null;
+}
+
+/* hostapd creates the port of a 4-address station as <bss>.sta<aid> when
+   the station associates, after the ruleset was written. A hook with the
+   name prefix binds the port when it registers, so it does not wait for
+   the next reload. Every wireless member gets the prefix, because a reload
+   at boot runs before the first station associates. Name prefixes in a
+   flowtable need Linux 6.17; an older kernel fails the check of hardware
+   offload, so it keeps the port names. */
+function resolve_hw_offload_port(devname, use_prefix) {
+	if (!use_prefix)
+		return [ devname ];
+
+	let m = match(devname, wds_port_re);
+
+	if (m)
+		return [ `${m[1]}.sta*` ];
+
+	/* A port name needs the prefix and at least one digit within
+	   IFNAMSIZ - 1 characters, and the kernel keeps the prefix in a buffer
+	   of IFNAMSIZ. A longer member cannot have a WDS port. */
+	if (!device_is_wireless(devname) || length(devname) + length(".sta0") >= IFNAMSIZ)
+		return [ devname ];
+
+	return [ devname, `${devname}.sta*` ];
+}
+
+function resolve_lower_devices(devstatus, devname, use_prefix) {
 	let dir = fs.opendir(`/sys/class/net/${devname}`);
 	let devs = [];
 
@@ -449,12 +484,12 @@ function resolve_lower_devices(devstatus, devname) {
 
 			while ((e = dir.read()) != null)
 				if (index(e, "lower_") === 0)
-					push(devs, ...resolve_lower_devices(devstatus, substr(e, 6)));
+					push(devs, ...resolve_lower_devices(devstatus, substr(e, 6), use_prefix));
 
 			break;
 
 		default:
-			push(devs, devname);
+			push(devs, ...resolve_hw_offload_port(devname, use_prefix));
 
 			break;
 		}
@@ -525,6 +560,7 @@ return {
 
 		let devstatus = null;
 		let devices = null;
+		let use_prefix = (this.kernel >= 0x06110000);
 		let bus = ubus.connect();
 
 		if (bus) {
@@ -534,7 +570,7 @@ return {
 
 		for (let zone in this.zones())
 			for (let device in zone.related_physdevs)
-				push(devices ||= [], ...resolve_lower_devices(devstatus, device));
+				push(devices ||= [], ...resolve_lower_devices(devstatus, device, use_prefix));
 
 		if (!devices)
 			return null;

@@ -1,0 +1,71 @@
+Testing that software flow offloading lists the zone devices without the
+WDS name prefix. Only the hardware offload flowtable lists the bridge
+members and their prefixes.
+
+-- Testcase --
+{%
+	fw4.load(false);
+	print(fw4.resolve_offload_devices(), "\n");
+%}
+-- End --
+
+-- File fs/open~_proc_version.txt --
+Linux version 6.18.55 (builder@host) (aarch64-openwrt-linux-musl-gcc) #0 SMP
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{
+	"defaults": [
+		{
+			"flow_offloading": 1,
+			"flow_offloading_hw": 0
+		}
+	],
+	"zone": [
+		{
+			"name": "lan",
+			"network": "lan",
+			"auto_helper": 0
+		},
+		{
+			"name": "wan",
+			"network": "wan",
+			"auto_helper": 0
+		}
+	]
+}
+-- End --
+
+-- File fs/opendir~_sys_class_net_br-lan.json --
+[
+	"lower_eth0",
+	"lower_wlan1"
+]
+-- End --
+
+-- File fs/opendir~_sys_class_net_wlan1.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_wlan1_uevent.txt --
+DEVTYPE=wlan
+INTERFACE=wlan1
+IFINDEX=9
+-- End --
+
+-- File fs/open~_sys_class_net_br-lan.txt --
+DEVTYPE=bridge
+INTERFACE=br-lan
+-- End --
+
+-- File fs/open~_sys_class_net_eth1.txt --
+INTERFACE=eth1
+-- End --
+
+-- Expect stdout --
+[ "br-lan", "eth1" ]
+-- End --
