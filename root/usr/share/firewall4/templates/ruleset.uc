@@ -112,9 +112,9 @@ table inet fw4 {
 	chain input {
 		type filter hook input priority filter; policy {{ fw4.input_policy(true) }};
 
+{% fw4.includes('chain-prepend', 'input') %}
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
-{% fw4.includes('chain-prepend', 'input') %}
 		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle inbound flows"
 {% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")): %}
 		tcp flags & (fin | syn | rst | ack) == syn jump syn_flood comment "!fw4: Rate limit TCP syn packets"
@@ -154,9 +154,9 @@ table inet fw4 {
 	chain output {
 		type filter hook output priority filter; policy {{ fw4.output_policy(true) }};
 
+{% fw4.includes('chain-prepend', 'output') %}
 		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
 
-{% fw4.includes('chain-prepend', 'output') %}
 		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle outbound flows"
 {% for (let rule in fw4.rules("output")): %}
 		{%+ include("rule.uc", { fw4, zone: null, rule }) %}
