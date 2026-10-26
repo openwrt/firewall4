@@ -124,11 +124,9 @@ Testing the correct placement of potential include positions.
 -- End --
 
 -- Expect stdout --
-table inet fw4
-flush table inet fw4
 
 include "/usr/share/nftables.d/include-ruleset-start.nft"
-
+destroy table inet fw4
 table inet fw4 {
 	#
 	# Defines

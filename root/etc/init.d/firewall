@@ -18,11 +18,11 @@ start_service() {
 }
 
 stop_service() {
-	fw4 flush
+	fw4 ${QUIET} stop
 }
 
 reload_service() {
-	fw4 reload
+	fw4 ${QUIET} reload
 }
 
 boot() {

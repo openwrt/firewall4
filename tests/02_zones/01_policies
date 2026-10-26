@@ -61,9 +61,7 @@ Testing that zone policies are properly mapped to chains.
 -- End --
 
 -- Expect stdout --
-table inet fw4
-flush table inet fw4
-
+destroy table inet fw4
 table inet fw4 {
 	#
 	# Defines
