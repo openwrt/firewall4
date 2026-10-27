@@ -97,6 +97,7 @@ table inet fw4 {
 	}
 
 	chain handle_reject {
+		ct state invalid counter drop comment "!fw4: drop invalid packets before reject"
 		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
 		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
 	}

@@ -129,7 +129,7 @@ table inet fw4 {
 		{%+ include("zone-jump.uc", { fw4, zone, rule, direction: "input" }) %}
 {% endfor; endfor %}
 {% if (fw4.input_policy() == "reject"): %}
-		jump handle_reject
+		goto handle_reject
 {% endif %}
 {% fw4.includes('chain-append', 'input') %}
 	}
@@ -150,7 +150,7 @@ table inet fw4 {
 {% endfor; endfor %}
 {% fw4.includes('chain-append', 'forward') %}
 {% if (fw4.forward_policy() == "reject"): %}
-		jump handle_reject
+		goto handle_reject
 {% endif %}
 	}
 
@@ -178,7 +178,7 @@ table inet fw4 {
 {% endfor %}
 {% fw4.includes('chain-append', 'output') %}
 {% if (fw4.output_policy() == "reject"): %}
-		jump handle_reject
+		goto handle_reject
 {% endif %}
 	}
 
@@ -198,6 +198,9 @@ table inet fw4 {
 	}
 
 	chain handle_reject {
+{% if (!fw4.default_option("drop_invalid")): %}
+		ct state invalid counter drop comment "!fw4: drop invalid packets before reject"
+{% endif %}
 		meta l4proto tcp reject with {{
 			(fw4.default_option("tcp_reject_code") != "tcp-reset")
 				? `icmpx type ${fw4.default_option("tcp_reject_code")}`
