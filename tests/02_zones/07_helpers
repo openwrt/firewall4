@@ -333,11 +333,11 @@ table inet fw4 {
 	}
 
 	chain srcnat_test1 {
-		meta nfproto ipv4 masquerade comment "!fw4: Masquerade IPv4 test1 traffic"
+		iif != 0 meta nfproto ipv4 masquerade comment "!fw4: Masquerade IPv4 test1 traffic"
 	}
 
 	chain srcnat_test2 {
-		meta nfproto ipv6 masquerade comment "!fw4: Masquerade IPv6 test2 traffic"
+		iif != 0 meta nfproto ipv6 masquerade comment "!fw4: Masquerade IPv6 test2 traffic"
 	}
 
 
