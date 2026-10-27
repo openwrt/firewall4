@@ -1,5 +1,6 @@
 {%+ if (rule.family): -%}
 	meta nfproto {{ fw4.nfproto(rule.family) }} {%+ endif -%}
+	meta l4proto tcp {%+ -%}
 {%+ include("zone-match.uc", { egress, rule }) -%}
 tcp flags syn / syn,fin,rst tcp option maxseg size set rt mtu {%+ if (zone.log & 2): -%}
 	log prefix "MSSFIX {{ zone.name }} out: " {%+ endif -%}
