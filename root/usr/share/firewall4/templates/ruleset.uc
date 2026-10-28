@@ -297,8 +297,11 @@ table inet fw4 {
 	chain dstnat {
 		type nat hook prerouting priority dstnat; policy accept;
 {% fw4.includes('chain-prepend', 'dstnat') %}
+{% for (let redirect in fw4.redirects("dstnat")): %}
+		{%+ include("redirect.uc", { fw4, zone: null, redirect }) %}
+{% endfor %}
 {% for (let zone in fw4.zones()): %}
-{%  if (zone.dflags.dnat): %}
+{%  if (zone.dflags.dnat || zone.dflags.npt): %}
 {%   for (let rule in zone.match_rules): %}
 		{%+ include("zone-jump.uc", { fw4, zone, rule, direction: "dstnat" }) %}
 {%   endfor %}
@@ -324,7 +327,7 @@ table inet fw4 {
 	}
 
 {% for (let zone in fw4.zones()): %}
-{%  if (zone.dflags.dnat): %}
+{%  if (zone.dflags.dnat || zone.dflags.npt): %}
 	chain dstnat_{{ zone.name }} {
 {%   fw4.includes('chain-prepend', `dstnat_${zone.name}`) %}
 {%   for (let redirect in fw4.redirects(`dstnat_${zone.name}`)): %}

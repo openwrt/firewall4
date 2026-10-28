@@ -5,7 +5,7 @@
 		(redirect.proto.name == 'icmp' && redirect.family == 6) ? 'ipv6-icmp' : redirect.proto.name
 	}} {%+ endif -%}
 {%+ if (redirect.device): -%}
-	oifname {{ fw4.quote(redirect.device, true) }} {%+ endif -%}
+	{{ (redirect.target == "dnat") ? "iifname" : "oifname" }} {{ fw4.quote(redirect.device, true) }} {%+ endif -%}
 {%+ if (redirect.saddrs_pos): -%}
 	{{ fw4.ipproto(redirect.family) }} saddr {{ fw4.set(redirect.saddrs_pos) }} {%+ endif -%}
 {%+ if (redirect.saddrs_neg): -%}
@@ -76,6 +76,10 @@
 	redirect{% if (redirect.rport): %} to {{ fw4.port(redirect.rport) }}{% endif %}
 {%-  elif (redirect.target == "accept" || redirect.target == "masquerade"): -%}
 	{{ redirect.target }}
+{%-  elif (redirect.prefix_map): -%}
+	{{ redirect.target }} {{ fw4.ipproto(redirect.family) }} prefix to {{ fw4.ipproto(redirect.family) }} {{
+		(redirect.target == "snat") ? "saddr" : "daddr"
+	}} map { {{ redirect.prefix_map[0] }} : {{ redirect.prefix_map[1] }} }
 {%-  else -%}
 	{{ redirect.target }} {{ redirect.raddr ? fw4.host(redirect.raddr, redirect.rport != null) : '' }}
 	{%- if (redirect.rport): %}:{{ fw4.port(redirect.rport) }}{% endif %}
