@@ -1,0 +1,283 @@
+Test the prefix translation of nat sections with target npt.
+
+-- Testcase --
+{%
+	include("./root/usr/share/firewall4/main.uc", {
+		getenv: function(varname) {
+			switch (varname) {
+			case 'ACTION':
+				return 'print';
+			}
+		}
+	})
+%}
+-- End --
+
+-- File fs/open~_sys_class_net_pppoe-wan_flags.txt --
+0x1191
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{
+	"zone": [
+		{
+			"name": "wan",
+			"network": [ "wan", "wan6" ]
+		},
+		{
+			"name": "lan",
+			"network": "lan",
+			"auto_helper": 0
+		}
+	],
+	"nat": [
+		{
+			".description": "Ensure a zone gives a prefix SNAT and the reverse prefix DNAT in the chains of the zone",
+			"name": "NPT test #1",
+			"src": "wan",
+			"target": "npt",
+			"src_ip": "fd00:21::/64",
+			"snat_ip": "2001:db8:200::/64"
+		},
+		{
+			".description": "Ensure a device gives oifname and iifname matches, and host bits are masked",
+			"name": "NPT test #2",
+			"device": "eth1",
+			"target": "npt",
+			"src_ip": "fd00:22::1/48",
+			"snat_ip": "2001:db8:300::1/48",
+			"counter": "0"
+		},
+		{
+			".description": "Ensure IPv4 prefixes give a netmap",
+			"name": "NPT test #3",
+			"device": "eth1",
+			"target": "npt",
+			"src_ip": "10.0.0.0/24",
+			"snat_ip": "192.0.2.0/24"
+		},
+		{
+			".description": "Ensure prefixes of different lengths are refused",
+			"name": "NPT test #4",
+			"device": "eth1",
+			"target": "npt",
+			"src_ip": "fd00:24::/64",
+			"snat_ip": "2001:db8:400::/56"
+		},
+		{
+			".description": "Ensure prefixes of different families are refused",
+			"name": "NPT test #5",
+			"device": "eth1",
+			"target": "npt",
+			"src_ip": "fd00:25::/64",
+			"snat_ip": "192.0.2.0/24"
+		},
+		{
+			".description": "Ensure a section without zone or device is refused",
+			"name": "NPT test #6",
+			"target": "npt",
+			"src_ip": "fd00:26::/64",
+			"snat_ip": "2001:db8:600::/64"
+		},
+		{
+			".description": "Ensure ports are refused",
+			"name": "NPT test #7",
+			"src": "wan",
+			"target": "npt",
+			"proto": "tcp",
+			"dest_port": "80",
+			"src_ip": "fd00:27::/64",
+			"snat_ip": "2001:db8:700::/64"
+		},
+		{
+			".description": "Ensure a section without prefixes is refused",
+			"name": "NPT test #8",
+			"src": "wan",
+			"target": "npt"
+		}
+	]
+}
+-- End --
+
+-- Expect stderr --
+[!] Section @nat[3] (NPT test #4) needs one prefix of the same family and length in 'src_ip' and 'snat_ip' for target npt, ignoring section
+[!] Section @nat[4] (NPT test #5) needs one prefix of the same family and length in 'src_ip' and 'snat_ip' for target npt, ignoring section
+[!] Section @nat[5] (NPT test #6) needs either 'src' or 'device' for target npt, ignoring section
+[!] Section @nat[6] (NPT test #7) must not use 'src_port', 'dest_port' or 'dest_ip' for target npt, ignoring section
+[!] Section @nat[7] (NPT test #8) needs one prefix of the same family and length in 'src_ip' and 'snat_ip' for target npt, ignoring section
+-- End --
+
+-- Expect stdout --
+table inet fw4
+flush table inet fw4
+
+table inet fw4 {
+	#
+	# Defines
+	#
+
+	define wan_devices = { "pppoe-wan" }
+	define wan_subnets = { 10.11.12.0/24, 2001:db8:54:321::/64 }
+
+	define lan_devices = { "br-lan" }
+	define lan_subnets = { 10.0.0.0/24, 192.168.26.0/24, 2001:db8:1000::/60, fd63:e2f:f706::/60 }
+
+
+	#
+	# User includes
+	#
+
+	include "/etc/nftables.d/*.nft"
+
+
+	#
+	# Filter rules
+	#
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
+		iifname "br-lan" jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		iifname "pppoe-wan" jump forward_wan comment "!fw4: Handle wan IPv4/IPv6 forward traffic"
+		iifname "br-lan" jump forward_lan comment "!fw4: Handle lan IPv4/IPv6 forward traffic"
+	}
+
+	chain output {
+		type filter hook output priority filter; policy drop;
+
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
+		oifname "pppoe-wan" jump output_wan comment "!fw4: Handle wan IPv4/IPv6 output traffic"
+		oifname "br-lan" jump output_lan comment "!fw4: Handle lan IPv4/IPv6 output traffic"
+	}
+
+	chain prerouting {
+		type filter hook prerouting priority filter; policy accept;
+	}
+
+	chain handle_reject {
+		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
+		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
+	}
+
+	chain input_wan {
+		jump drop_from_wan
+	}
+
+	chain output_wan {
+		jump drop_to_wan
+	}
+
+	chain forward_wan {
+		jump drop_to_wan
+	}
+
+	chain drop_from_wan {
+		iifname "pppoe-wan" counter drop comment "!fw4: drop wan IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_wan {
+		oifname "pppoe-wan" counter drop comment "!fw4: drop wan IPv4/IPv6 traffic"
+	}
+
+	chain input_lan {
+		jump drop_from_lan
+	}
+
+	chain output_lan {
+		jump drop_to_lan
+	}
+
+	chain forward_lan {
+		jump drop_to_lan
+	}
+
+	chain drop_from_lan {
+		iifname "br-lan" counter drop comment "!fw4: drop lan IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_lan {
+		oifname "br-lan" counter drop comment "!fw4: drop lan IPv4/IPv6 traffic"
+	}
+
+
+	#
+	# NAT rules
+	#
+
+	chain dstnat {
+		type nat hook prerouting priority dstnat; policy accept;
+		iifname "eth1" ip6 daddr 2001:db8:300::/48 dnat ip6 prefix to ip6 daddr map { 2001:db8:300::/48 : fd00:22::/48 } comment "!fw4: NPT test #2"
+		iifname "eth1" ip daddr 192.0.2.0/24 counter dnat ip prefix to ip daddr map { 192.0.2.0/24 : 10.0.0.0/24 } comment "!fw4: NPT test #3"
+		iifname "pppoe-wan" jump dstnat_wan comment "!fw4: Handle wan IPv4/IPv6 dstnat traffic"
+	}
+
+	chain srcnat {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "eth1" ip6 saddr fd00:22::/48 snat ip6 prefix to ip6 saddr map { fd00:22::/48 : 2001:db8:300::/48 } comment "!fw4: NPT test #2"
+		oifname "eth1" ip saddr 10.0.0.0/24 counter snat ip prefix to ip saddr map { 10.0.0.0/24 : 192.0.2.0/24 } comment "!fw4: NPT test #3"
+		oifname "pppoe-wan" jump srcnat_wan comment "!fw4: Handle wan IPv4/IPv6 srcnat traffic"
+	}
+
+	chain dstnat_wan {
+		ip6 daddr 2001:db8:200::/64 counter dnat ip6 prefix to ip6 daddr map { 2001:db8:200::/64 : fd00:21::/64 } comment "!fw4: NPT test #1"
+	}
+
+	chain srcnat_wan {
+		ip6 saddr fd00:21::/64 counter snat ip6 prefix to ip6 saddr map { fd00:21::/64 : 2001:db8:200::/64 } comment "!fw4: NPT test #1"
+	}
+
+
+	#
+	# Raw rules (notrack)
+	#
+
+	chain raw_prerouting {
+		type filter hook prerouting priority raw; policy accept;
+	}
+
+	chain raw_output {
+		type filter hook output priority raw; policy accept;
+	}
+
+
+	#
+	# Mangle rules
+	#
+
+	chain mangle_prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+	}
+
+	chain mangle_postrouting {
+		type filter hook postrouting priority mangle; policy accept;
+	}
+
+	chain mangle_input {
+		type filter hook input priority mangle; policy accept;
+	}
+
+	chain mangle_output {
+		type route hook output priority mangle; policy accept;
+	}
+
+	chain mangle_forward {
+		type filter hook forward priority mangle; policy accept;
+	}
+}
+-- End --

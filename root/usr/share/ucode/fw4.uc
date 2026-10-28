@@ -358,6 +358,20 @@ function ensure_tcpudp(x) {
 	return false;
 }
 
+/* RFC 6296 maps one prefix to one prefix of the same length */
+function npt_prefixes_valid(internal, external) {
+	let i = internal?.addrs, e = external?.addrs;
+
+	if (length(i) != 1 || length(e) != 1)
+		return false;
+
+	i = i[0];
+	e = e[0];
+
+	return !i.invert && !i.range && !e.range && i.bits >= 0 &&
+		i.family == e.family && i.bits == e.bits;
+}
+
 let is_family = (x, v) => (!x.family || x.family == v);
 let family_is_ipv4 = (x) => (!x.family || x.family == 4);
 let family_is_ipv6 = (x) => (!x.family || x.family == 6);
@@ -1495,6 +1509,7 @@ return {
 			"dnat",
 			"snat",
 			"masquerade",
+			"npt",
 			"accept",
 			"reject",
 			"drop"
@@ -3112,7 +3127,7 @@ return {
 			return;
 		}
 
-		if (!(snat.target in ["accept", "snat", "masquerade"])) {
+		if (!(snat.target in ["accept", "snat", "masquerade", "npt"])) {
 			this.warn_section(data, "has invalid target specified, defaulting to masquerade");
 			snat.target = "masquerade";
 		}
@@ -3121,7 +3136,19 @@ return {
 			this.warn_section(data, "needs either 'snat_ip' or 'snat_port' for target snat, ignoring section");
 			return;
 		}
-		else if (snat.target != "snat" && snat.snat_ip) {
+		else if (snat.target == "npt" && !snat.src?.zone && !snat.device) {
+			this.warn_section(data, "needs either 'src' or 'device' for target npt, ignoring section");
+			return;
+		}
+		else if (snat.target == "npt" && (snat.src_port || snat.dest_port || snat.dest_ip)) {
+			this.warn_section(data, "must not use 'src_port', 'dest_port' or 'dest_ip' for target npt, ignoring section");
+			return;
+		}
+		else if (snat.target == "npt" && !npt_prefixes_valid(snat.src_ip, snat.snat_ip)) {
+			this.warn_section(data, "needs one prefix of the same family and length in 'src_ip' and 'snat_ip' for target npt, ignoring section");
+			return;
+		}
+		else if (!(snat.target in ["snat", "npt"]) && snat.snat_ip) {
 			this.warn_section(data, "must not use 'snat_ip' for non-snat target, ignoring section");
 			return;
 		}
@@ -3183,6 +3210,30 @@ return {
 			push(this.state.redirects ||= [], n);
 		};
 
+		/* The zone gets the npt flag, not the dnat flag: the dnat flag also
+		 * accepts all translated traffic, but the forward rules must decide. */
+		let add_npt_rules = (family, proto, internal, external) => {
+			let zone = snat.src?.zone;
+			let n = { ...snat, family: family, proto: proto, has_addrs: true, has_ports: false };
+
+			if (zone)
+				zone.dflags.npt = true;
+
+			push(this.state.redirects ||= [], {
+				...n,
+				target: "snat",
+				saddrs_pos: [ this.cidr(internal) ],
+				prefix_map: [ this.cidr(internal), this.cidr(external) ],
+				chain: zone ? `srcnat_${zone.name}` : "srcnat"
+			}, {
+				...n,
+				target: "dnat",
+				daddrs_pos: [ this.cidr(external) ],
+				prefix_map: [ this.cidr(external), this.cidr(internal) ],
+				chain: zone ? `dstnat_${zone.name}` : "dstnat"
+			});
+		};
+
 		for (let proto in snat.proto) {
 			let sip, dip, rip, sport, dport, rport;
 			let family = snat.family;
@@ -3237,8 +3288,14 @@ return {
 					family = 4; /* default to IPv4 only for backwards compatibility, unless an explict family any was configured */
 			}
 
+			if (snat.target == "npt") {
+				let af = (family == 6) ? 1 : 0;
+
+				add_npt_rules(family, proto, sip[af][0], rip[af][0]);
+			}
+
 			/* check if there's no AF specific bits, in this case we can do an AF agnostic rule */
-			if (!family && !length(sip[0]) && !length(sip[1]) && !length(dip[0]) && !length(dip[1]) && !length(rip[0]) && !length(rip[1])) {
+			else if (!family && !length(sip[0]) && !length(sip[1]) && !length(dip[0]) && !length(dip[1]) && !length(rip[0]) && !length(rip[1])) {
 				add_rule(0, proto, [], [], null, sport, dport, rport, snat);
 			}
 
