@@ -57,10 +57,10 @@
 	}} {{ fw4.hex(redirect.mark.mark) }} {%+ endif -%}
 {%+ if (redirect.mark && redirect.mark.mask == 0xFFFFFFFF): -%}
 	meta mark{% if (redirect.mark.invert): %} !={% endif %} {{ fw4.hex(redirect.mark.mark) }} {%+ endif -%}
-{%+ if (redirect.ipset): -%}
-	{{ fw4.concat(redirect.ipset.fields) }}{{
-		redirect.ipset.invert ? ' !=' : ''
-	}} @{{ redirect.ipset.name }} {%+ endif -%}
+{%+ for (let set in redirect.setmatches): -%}
+	{{ fw4.concat(set.fields) }}{{
+		set.invert ? ' !=' : ''
+	}} @{{ set.name }} {%+ endfor -%}
 {%+ if (redirect.log && redirect.log_limit): -%}
 	limit rate {{ redirect.log_limit.rate }}/{{ redirect.log_limit.unit }} log prefix {{ fw4.quote(redirect.log, true) }}
 		{%+ include("redirect.uc", { fw4, zone, redirect: { ...redirect, log: 0 } }) %}

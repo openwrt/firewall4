@@ -10,6 +10,7 @@ const NO_INVERT    = 0x04;
 const UNSUPPORTED  = 0x08;
 const REQUIRED     = 0x10;
 const DEPRECATED   = 0x20;
+const LITERAL_LIST = 0x40; /* with PARSE_LIST: a scalar value is one element, do not split it at whitespace */
 
 const ipv4_icmptypes = {
 	"any": [ 0xFF, 0, 0xFF ],
@@ -390,7 +391,7 @@ function infer_family(f, objects) {
 
 			if (!res) {
 				res = obj.family;
-				by = obj.desc;
+				by = desc;
 				continue;
 			}
 
@@ -1175,7 +1176,7 @@ return {
 			return '';
 		}));
 
-		let dir = split(rv.val, /[ \t,]/);
+		let dir = filter(split(rv.val, /[ \t,]+/), t => length(t));
 
 		for (let i = 0; i < 3 && i < length(dir); i++) {
 			if (dir[i] == "dst" || dir[i] == "dest")
@@ -1185,6 +1186,58 @@ return {
 		}
 
 		return length(rv.name) ? rv : null;
+	},
+
+	/* Resolve the `ipset` references of a rule or redirect section into a
+	 * list of { set, match, dirs } tuples. Every reference is validated on its
+	 * own exactly like the former single reference was; `dirs` holds the
+	 * effective match direction per set field. Multiple references are AND-ed
+	 * by the templates. Returns null if any reference is invalid (the section
+	 * is dropped), an empty list if the section has none. */
+	resolve_setmatches: function(data, matches, protos) {
+		let rv = [];
+
+		for (let match in matches) {
+			let set = filter(this.state.ipsets, s => (s.name == match.name))?.[0];
+
+			if (!set) {
+				this.warn_section(data, `references unknown set '${match.name}'`);
+				return null;
+			}
+
+			if (('inet_service' in set.types) && (length(filter(protos, p => p.invert)) || !ensure_tcpudp(protos))) {
+				this.warn_section(data, "references named set with port match but no UDP/TCP protocol, ignoring section");
+				return null;
+			}
+
+			let dirs = [];
+
+			for (let i, t in set.types) {
+				push(dirs, match.dir?.[i] || set.directions[i] || 'src');
+
+				/* a MAC address can only be matched as source */
+				if (t == 'ether_addr' && dirs[i] != 'src') {
+					this.warn_section(data, "destination MAC address matching not supported");
+					return null;
+				}
+			}
+
+			let same = filter(rv, e => (e.set == set && join(",", e.dirs) == join(",", dirs)));
+
+			if (length(filter(same, e => (e.match.invert == match.invert)))) {
+				this.warn_section(data, `references set '${match.name}' more than once, ignoring duplicate`);
+				continue;
+			}
+
+			if (length(same)) {
+				this.warn_section(data, `references set '${match.name}' both negated and non-negated, rule can never match`);
+				return null;
+			}
+
+			push(rv, { set, match, dirs });
+		}
+
+		return rv;
 	},
 
 	parse_cthelper: function(val) {
@@ -1705,6 +1758,9 @@ return {
 
 			val = defval;
 		}
+
+		if ((flags & LITERAL_LIST) && type(val) != "array")
+			val = (val == null) ? [] : [ val ];
 
 		for (val in to_array(val)) {
 			let res = this[fn](val);
@@ -2399,7 +2455,7 @@ return {
 			device: [ "device", null, NO_INVERT ],
 			direction: [ "direction" ],
 
-			ipset: [ "setmatch" ],
+			ipset: [ "setmatch", null, PARSE_LIST | LITERAL_LIST ],
 			helper: [ "cthelper" ],
 			set_helper: [ "cthelper", null, NO_INVERT ],
 
@@ -2496,25 +2552,14 @@ return {
 			delete rule.log;
 		}
 
-		let ipset;
+		let ipsets = this.resolve_setmatches(data, rule.ipset, rule.proto);
 
-		if (rule.ipset) {
-			ipset = filter(this.state.ipsets, s => (s.name == rule.ipset.name))?.[0];
-
-			if (!ipset) {
-				this.warn_section(data, `references unknown set '${rule.ipset.name}'`);
-				return;
-			}
-
-			if (('inet_service' in ipset.types) && (length(protos_neg) || !ensure_tcpudp(rule.proto))) {
-				this.warn_section(data, "references named set with port match but no UDP/TCP protocol, ignoring section");
-				return;
-			}
-		}
+		if (ipsets === null)
+			return;
 
 		let need_src_action_chain = (rule) => (rule.src?.zone?.log && rule.target != "accept");
 
-		let add_rule = (family, proto, saddrs, daddrs, sports, dports, icmptypes, icmpcodes, ipset, rule) => {
+		let add_rule = (family, proto, saddrs, daddrs, sports, dports, icmptypes, icmpcodes, ipsets, rule) => {
 			let r = {
 				...rule,
 
@@ -2554,13 +2599,17 @@ return {
 				delete r.set_mark;
 			}
 
-			let set_types = map_setmatch(ipset, rule.ipset, proto.name);
+			delete r.ipset;
 
-			if (set_types !== set_types) {
-				this.warn_section(data, "destination MAC address matching not supported");
-				return;
-			} else if (set_types) {
-				r.ipset = { ...r.ipset, fields: set_types };
+			for (let e in ipsets) {
+				let set_types = map_setmatch(e.set, e.match, proto.name);
+
+				if (!set_types || set_types !== set_types) {
+					this.warn_section(data, `references set '${e.set.name}' that cannot be matched here, skipping`);
+					return;
+				}
+
+				push(r.setmatches ||= [], { ...e.match, name: e.set.name, fields: set_types });
 			}
 
 			if (r.target == "notrack") {
@@ -2632,6 +2681,15 @@ return {
 			let sip, dip, sports, dports, itypes4, itypes6;
 			let family = rule.family;
 
+			/* a port set cannot match a protocol without ports; skip the protocol
+			   instead of emitting an invalid rule */
+			let inapplicable = filter(ipsets, e => (('inet_service' in e.set.types) && proto.name != 'tcp' && proto.name != 'udp'));
+
+			if (length(inapplicable)) {
+				this.warn_section(data, `references set '${inapplicable[0].set.name}' with port match which does not apply to protocol '${proto.name}', skipping this protocol`);
+				continue;
+			}
+
 			switch (proto.name) {
 			case "icmp":
 				itypes4 = filter(rule.icmp_type || [], family_is_ipv4);
@@ -2654,7 +2712,7 @@ return {
 			dip = subnets_split_af(rule.dest_ip);
 
 			family = infer_family(family, [
-				ipset, "set match",
+				map(ipsets, e => e.set), "set match",
 				sip, "source IP",
 				dip, "destination IP",
 				rule.src?.zone, "source zone",
@@ -2683,7 +2741,7 @@ return {
 
 			/* check if there's no AF specific bits, in this case we can do an AF agnostic rule */
 			if (!family && rule.target != "dscp" && !has_ipv4_specifics && !has_ipv6_specifics) {
-				add_rule(0, proto, [], [], sports, dports, null, null, ipset, rule);
+				add_rule(0, proto, [], [], sports, dports, null, null, ipsets, rule);
 			}
 
 			/* we need to emit one or two AF specific rules */
@@ -2695,10 +2753,10 @@ return {
 					for (let saddrs in subnets_group_by_masking(sip[0])) {
 						for (let daddrs in subnets_group_by_masking(dip[0])) {
 							if (length(icmp_types) || (!length(icmp_types) && !length(icmp_codes)))
-								add_rule(4, proto, saddrs, daddrs, sports, dports, icmp_types, null, ipset, rule);
+								add_rule(4, proto, saddrs, daddrs, sports, dports, icmp_types, null, ipsets, rule);
 
 							if (length(icmp_codes))
-								add_rule(4, proto, saddrs, daddrs, sports, dports, null, icmp_codes, ipset, rule);
+								add_rule(4, proto, saddrs, daddrs, sports, dports, null, icmp_codes, ipsets, rule);
 						}
 					}
 				}
@@ -2710,10 +2768,10 @@ return {
 					for (let saddrs in subnets_group_by_masking(sip[1])) {
 						for (let daddrs in subnets_group_by_masking(dip[1])) {
 							if (length(icmp_types) || (!length(icmp_types) && !length(icmp_codes)))
-								add_rule(6, proto, saddrs, daddrs, sports, dports, icmp_types, null, ipset, rule);
+								add_rule(6, proto, saddrs, daddrs, sports, dports, icmp_types, null, ipsets, rule);
 
 							if (length(icmp_codes))
-								add_rule(6, proto, saddrs, daddrs, sports, dports, null, icmp_codes, ipset, rule);
+								add_rule(6, proto, saddrs, daddrs, sports, dports, null, icmp_codes, ipsets, rule);
 						}
 					}
 				}
@@ -2732,7 +2790,7 @@ return {
 			src: [ "zone_ref" ],
 			dest: [ "zone_ref" ],
 
-			ipset: [ "setmatch" ],
+			ipset: [ "setmatch", null, PARSE_LIST | LITERAL_LIST ],
 			helper: [ "cthelper", null, NO_INVERT ],
 
 			proto: [ "protocol", "tcpudp", PARSE_LIST | FLATTEN_LIST ],
@@ -2797,21 +2855,10 @@ return {
 			delete redir.log;
 		}
 
-		let ipset;
+		let ipsets = this.resolve_setmatches(data, redir.ipset, redir.proto);
 
-		if (redir.ipset) {
-			ipset = filter(this.state.ipsets, s => (s.name == redir.ipset.name))?.[0];
-
-			if (!ipset) {
-				this.warn_section(data, `references unknown set '${redir.ipset.name}'`);
-				return;
-			}
-
-			if (('inet_service' in ipset.types) && !ensure_tcpudp(redir.proto)) {
-				this.warn_section(data, "references named set with port match but no UDP/TCP protocol, ignoring section");
-				return;
-			}
-		}
+		if (ipsets === null)
+			return;
 
 		let resolve_dest = (redir) => {
 			for (let zone in this.state.zones) {
@@ -2885,7 +2932,7 @@ return {
 			redir.dest.zone.dflags[redir.target] = true;
 		}
 
-		let add_rule = (family, proto, saddrs, daddrs, raddrs, sport, dport, rport, ipset, redir) => {
+		let add_rule = (family, proto, saddrs, daddrs, raddrs, sport, dport, rport, ipsets, redir) => {
 			let r = {
 				...redir,
 
@@ -2910,13 +2957,17 @@ return {
 				rport: rport
 			};
 
-			let set_types = map_setmatch(ipset, redir.ipset, proto.name);
+			delete r.ipset;
 
-			if (set_types !== set_types) {
-				this.warn_section(data, "destination MAC address matching not supported");
-				return;
-			} else if (set_types) {
-				r.ipset = { ...r.ipset, fields: set_types };
+			for (let e in ipsets) {
+				let set_types = map_setmatch(e.set, e.match, proto.name);
+
+				if (!set_types || set_types !== set_types) {
+					this.warn_section(data, `references set '${e.set.name}' that cannot be matched here, skipping`);
+					return;
+				}
+
+				push(r.setmatches ||= [], { ...e.match, name: e.set.name, fields: set_types });
 			}
 
 			switch (r.target) {
@@ -2951,6 +3002,15 @@ return {
 		for (let proto in redir.proto) {
 			let sip, dip, rip, iip, eip, refip, sport, dport, rport;
 			let family = redir.family;
+
+			/* a port set cannot match a protocol without ports; skip the protocol
+			   instead of emitting an invalid rule */
+			let inapplicable = filter(ipsets, e => (('inet_service' in e.set.types) && proto.name != 'tcp' && proto.name != 'udp'));
+
+			if (length(inapplicable)) {
+				this.warn_section(data, `references set '${inapplicable[0].set.name}' with port match which does not apply to protocol '${proto.name}', skipping this protocol`);
+				continue;
+			}
 
 			if (proto.name == "ipv6-icmp")
 				family = 6;
@@ -2990,7 +3050,7 @@ return {
 			}
 
 			family = infer_family(family, [
-				ipset, "set match",
+				map(ipsets, e => e.set), "set match",
 				sip, "source IP",
 				dip, "destination IP",
 				rip, "rewrite IP",
@@ -3108,7 +3168,7 @@ return {
 				if (family == null)
 					family = 4;
 
-				add_rule(family, proto, [], [], null, sport, dport, rport, ipset, redir);
+				add_rule(family, proto, [], [], null, sport, dport, rport, ipsets, redir);
 			}
 
 			/* we need to emit one or two AF specific rules */
@@ -3116,13 +3176,13 @@ return {
 				if ((!family || family == 4) && (!has_any_addr || has_ip4_addr)) {
 					for (let saddrs in subnets_group_by_masking(sip[0]))
 						for (let daddrs in subnets_group_by_masking(dip[0]))
-							add_rule(4, proto, saddrs, daddrs, rip[0], sport, dport, rport, ipset, redir);
+							add_rule(4, proto, saddrs, daddrs, rip[0], sport, dport, rport, ipsets, redir);
 				}
 
 				if ((!family || family == 6) && (!has_any_addr || has_ip6_addr)) {
 					for (let saddrs in subnets_group_by_masking(sip[1]))
 						for (let daddrs in subnets_group_by_masking(dip[1]))
-							add_rule(6, proto, saddrs, daddrs, rip[1], sport, dport, rport, ipset, redir);
+							add_rule(6, proto, saddrs, daddrs, rip[1], sport, dport, rport, ipsets, redir);
 				}
 			}
 		}
