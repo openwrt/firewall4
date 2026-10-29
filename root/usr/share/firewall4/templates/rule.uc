@@ -39,7 +39,7 @@
 {%+ if (rule.helper): -%}
 	ct helper{% if (rule.helper.invert): %} !={% endif %} {{ fw4.quote(rule.helper.name, true) }} {%+ endif -%}
 {%+ if (rule.limit): -%}
-	limit rate {{ rule.limit.rate }}/{{ rule.limit.unit }}
+	limit rate{% if (rule.limit.invert): %} over{% endif %} {{ rule.limit.rate }}/{{ rule.limit.unit }}
 	{%- if (rule.limit_burst): %} burst {{ rule.limit_burst }} packets{% endif %} {%+ endif -%}
 {%+ if (rule.start_date && rule.stop_date): -%}
 	meta time {{ fw4.datestamp(rule.start_date) }}-{{ fw4.datestamp(rule.stop_date) }} {%+
