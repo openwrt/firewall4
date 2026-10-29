@@ -1,0 +1,325 @@
+Testing the syntax of a scalar ipset reference. Only direction tokens
+(src, dst, dest), at most three, separated by spaces or commas, may follow
+the set name. Anything else makes the value invalid and drops the section
+instead of silently ignoring the unknown tokens.
+
+-- Testcase --
+{%
+	include("./root/usr/share/firewall4/main.uc", {
+		getenv: function(varname) {
+			switch (varname) {
+			case 'ACTION':
+				return 'print';
+			}
+		}
+	})
+%}
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File fs/open~_proc_version.txt --
+Linux version 5.10.113 (jow@j7) (mipsel-openwrt-linux-musl-gcc (OpenWrt GCC 11.2.0 r17858+262-2c3e8bed3f) 11.2.0, GNU ld (GNU Binutils) 2.37) #0 SMP Tue May 17 19:05:07 2022
+-- End --
+
+-- File uci/firewall.json --
+{
+	"zone": [
+		{
+			"name": "lan",
+			"network": "lan"
+		},
+		{
+			"name": "wan",
+			"network": [
+				"wan",
+				"wan6"
+			],
+			"masq": 1
+		}
+	],
+	"ipset": [
+		{
+			"name": "hosts",
+			"comment": "Destination hosts",
+			"match": [
+				"dest_ip"
+			],
+			"entry": [
+				"10.0.1.1",
+				"10.0.1.2"
+			]
+		},
+		{
+			"name": "pairs",
+			"comment": "Source IP/MAC pairs",
+			"match": [
+				"src_ip",
+				"src_mac"
+			],
+			"entry": [
+				"192.168.26.10 00:11:22:33:44:55"
+			]
+		}
+	],
+	"rule": [
+		{
+			".description": "A direction token after the set name is accepted",
+			"name": "Reference with direction token",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "hosts src",
+			"target": "ACCEPT"
+		},
+		{
+			".description": "Repeated separators between tokens do not shift the field index",
+			"name": "Reference with repeated separators",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "hosts   src",
+			"target": "ACCEPT"
+		},
+		{
+			".description": "Direction tokens per field with a comma separator keep working",
+			"name": "Reference with comma separated tokens",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "pairs src,src",
+			"target": "ACCEPT"
+		},
+		{
+			".description": "Two set names in one scalar value are not a list; the value is invalid",
+			"name": "Reference with two set names",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "hosts pairs",
+			"target": "ACCEPT"
+		},
+		{
+			".description": "An unknown token after the set name is invalid",
+			"name": "Reference with unknown token",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "hosts source",
+			"target": "ACCEPT"
+		},
+		{
+			".description": "More than three direction tokens are invalid",
+			"name": "Reference with four direction tokens",
+			"src": "lan",
+			"dest": "wan",
+			"proto": "tcp",
+			"ipset": "pairs src src src src",
+			"target": "ACCEPT"
+		}
+	]
+}
+-- End --
+
+-- Expect stderr --
+[!] Section @rule[3] (Reference with two set names) option 'ipset' specifies invalid value 'hosts pairs'
+[!] Section @rule[3] (Reference with two set names) skipped due to invalid options
+[!] Section @rule[4] (Reference with unknown token) option 'ipset' specifies invalid value 'hosts source'
+[!] Section @rule[4] (Reference with unknown token) skipped due to invalid options
+[!] Section @rule[5] (Reference with four direction tokens) option 'ipset' specifies invalid value 'pairs src src src src'
+[!] Section @rule[5] (Reference with four direction tokens) skipped due to invalid options
+-- End --
+
+-- Expect stdout --
+table inet fw4
+flush table inet fw4
+
+table inet fw4 {
+	#
+	# Set definitions
+	#
+
+	set hosts {
+		comment "Destination hosts"
+		type ipv4_addr
+		elements = {
+			10.0.1.1,
+			10.0.1.2,
+		}
+	}
+
+	set pairs {
+		comment "Source IP/MAC pairs"
+		type ipv4_addr . ether_addr
+		elements = {
+			192.168.26.10 . 00:11:22:33:44:55,
+		}
+	}
+
+
+	#
+	# Defines
+	#
+
+	define lan_devices = { "br-lan" }
+	define lan_subnets = { 10.0.0.0/24, 192.168.26.0/24, 2001:db8:1000::/60, fd63:e2f:f706::/60 }
+
+	define wan_devices = { "pppoe-wan" }
+	define wan_subnets = { 10.11.12.0/24, 2001:db8:54:321::/64 }
+
+
+	#
+	# User includes
+	#
+
+	include "/etc/nftables.d/*.nft"
+
+
+	#
+	# Filter rules
+	#
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		iifname "br-lan" jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
+		iifname "pppoe-wan" jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		iifname "br-lan" jump forward_lan comment "!fw4: Handle lan IPv4/IPv6 forward traffic"
+		iifname "pppoe-wan" jump forward_wan comment "!fw4: Handle wan IPv4/IPv6 forward traffic"
+	}
+
+	chain output {
+		type filter hook output priority filter; policy drop;
+
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
+		oifname "br-lan" jump output_lan comment "!fw4: Handle lan IPv4/IPv6 output traffic"
+		oifname "pppoe-wan" jump output_wan comment "!fw4: Handle wan IPv4/IPv6 output traffic"
+	}
+
+	chain prerouting {
+		type filter hook prerouting priority filter; policy accept;
+	}
+
+	chain handle_reject {
+		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
+		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
+	}
+
+	chain input_lan {
+		jump drop_from_lan
+	}
+
+	chain output_lan {
+		jump drop_to_lan
+	}
+
+	chain forward_lan {
+		meta nfproto ipv4 meta l4proto tcp ip saddr @hosts counter jump accept_to_wan comment "!fw4: Reference with direction token"
+		meta nfproto ipv4 meta l4proto tcp ip saddr @hosts counter jump accept_to_wan comment "!fw4: Reference with repeated separators"
+		meta nfproto ipv4 meta l4proto tcp ip saddr . ether saddr @pairs counter jump accept_to_wan comment "!fw4: Reference with comma separated tokens"
+		jump drop_to_lan
+	}
+
+	chain drop_from_lan {
+		iifname "br-lan" counter drop comment "!fw4: drop lan IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_lan {
+		oifname "br-lan" counter drop comment "!fw4: drop lan IPv4/IPv6 traffic"
+	}
+
+	chain input_wan {
+		jump drop_from_wan
+	}
+
+	chain output_wan {
+		jump drop_to_wan
+	}
+
+	chain forward_wan {
+		jump drop_to_wan
+	}
+
+	chain accept_to_wan {
+		meta nfproto ipv4 oifname "pppoe-wan" ct state invalid counter drop comment "!fw4: Prevent NAT leakage"
+		oifname "pppoe-wan" counter accept comment "!fw4: accept wan IPv4/IPv6 traffic"
+	}
+
+	chain drop_from_wan {
+		iifname "pppoe-wan" counter drop comment "!fw4: drop wan IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_wan {
+		oifname "pppoe-wan" counter drop comment "!fw4: drop wan IPv4/IPv6 traffic"
+	}
+
+
+	#
+	# NAT rules
+	#
+
+	chain dstnat {
+		type nat hook prerouting priority dstnat; policy accept;
+	}
+
+	chain srcnat {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "pppoe-wan" jump srcnat_wan comment "!fw4: Handle wan IPv4/IPv6 srcnat traffic"
+	}
+
+	chain srcnat_wan {
+		meta nfproto ipv4 masquerade comment "!fw4: Masquerade IPv4 wan traffic"
+	}
+
+
+	#
+	# Raw rules (notrack)
+	#
+
+	chain raw_prerouting {
+		type filter hook prerouting priority raw; policy accept;
+	}
+
+	chain raw_output {
+		type filter hook output priority raw; policy accept;
+	}
+
+
+	#
+	# Mangle rules
+	#
+
+	chain mangle_prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+	}
+
+	chain mangle_postrouting {
+		type filter hook postrouting priority mangle; policy accept;
+	}
+
+	chain mangle_input {
+		type filter hook input priority mangle; policy accept;
+	}
+
+	chain mangle_output {
+		type route hook output priority mangle; policy accept;
+	}
+
+	chain mangle_forward {
+		type filter hook forward priority mangle; policy accept;
+	}
+}
+-- End --
