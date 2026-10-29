@@ -437,19 +437,25 @@ function map_setmatch(set, match, proto) {
 	return fields;
 }
 
-function resolve_lower_devices(devstatus, devname) {
+function resolve_lower_devices(devstatus, devname, stacked) {
 	let dir = fs.opendir(`/sys/class/net/${devname}`);
 	let devs = [];
 
 	if (dir) {
-		switch (devstatus[devname]?.devtype) {
+		let devtype = devstatus[devname]?.devtype ??
+			match(fs.readfile(`/sys/class/net/${devname}/uevent`), /DEVTYPE=([^\n]+)/)?.[1];
+
+		switch (devtype) {
 		case 'vlan':
 		case 'bridge':
 			let e;
 
+			if (stacked)
+				push(devs, devname);
+
 			while ((e = dir.read()) != null)
 				if (index(e, "lower_") === 0)
-					push(devs, ...resolve_lower_devices(devstatus, substr(e, 6)));
+					push(devs, ...resolve_lower_devices(devstatus, substr(e, 6), stacked));
 
 			break;
 
@@ -519,12 +525,12 @@ return {
 		return v;
 	},
 
-	resolve_hw_offload_devices: function() {
-		if (!this.default_option("flow_offloading_hw"))
-			return null;
+	resolve_offload_devices: function() {
+		if (!this.default_option("flow_offloading"))
+			return [];
 
 		let devstatus = null;
-		let devices = null;
+		let devices = [];
 		let bus = ubus.connect();
 
 		if (bus) {
@@ -532,43 +538,35 @@ return {
 			bus.disconnect();
 		}
 
-		for (let zone in this.zones())
-			for (let device in zone.related_physdevs)
-				push(devices ||= [], ...resolve_lower_devices(devstatus, device));
-
-		if (!devices)
-			return null;
-
-		devices = sort(uniq(devices));
-
-		if (!nft_try_hw_offload(devices)) {
-			this.warn('Hardware flow offloading unavailable, falling back to software offloading');
-			this.state.defaults.flow_offloading_hw = false;
-
-			return null;
-		}
-
-		return devices;
-	},
-
-	resolve_offload_devices: function() {
-		if (!this.default_option("flow_offloading"))
-			return [];
-
-		let devices = this.resolve_hw_offload_devices();
-
-		if (!devices) {
-			devices = [];
-
+		if (this.default_option("flow_offloading_hw")) {
 			for (let zone in this.zones())
 				for (let device in zone.related_physdevs)
-					if (fs.access(`/sys/class/net/${device}`))
-						push(devices, device);
+					push(devices, ...resolve_lower_devices(devstatus, device));
 
 			devices = sort(uniq(devices));
+
+			if (!length(devices) || nft_try_hw_offload(devices))
+				return devices;
+
+			this.warn('Hardware flow offloading unavailable, falling back to software offloading');
+			this.state.defaults.flow_offloading_hw = false;
+			devices = [];
 		}
 
-		return devices;
+		// a flow ends at the first device of its path that runs tc, such
+		// as an SQM shaper on a VLAN, so list the stacked devices as well
+		for (let zone in this.zones())
+			for (let device in zone.related_physdevs)
+				push(devices, ...resolve_lower_devices(devstatus, device, true));
+
+		// devices a zone names directly, such as a bridge of a container runtime
+		for (let zone in this.zones())
+			for (let device in to_array(zone.device))
+				if (!device.invert && device.device != '+')
+					push(devices, ...(device.wildcard ? [ device.device ]
+						: resolve_lower_devices(devstatus, device.device, true)));
+
+		return sort(uniq(devices));
 	},
 
 	check_set_types: function() {
