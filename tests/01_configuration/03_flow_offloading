@@ -53,7 +53,7 @@ table inet fw4 {
 
 	flowtable ft {
 		hook ingress priority 0;
-		devices = { "eth0", "eth1" };
+		devices = { "br-lan", "eth0", "eth1" };
 		counter;
 	}
 

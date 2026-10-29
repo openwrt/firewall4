@@ -437,7 +437,7 @@ function map_setmatch(set, match, proto) {
 	return fields;
 }
 
-function resolve_lower_devices(devstatus, devname) {
+function resolve_lower_devices(devstatus, devname, stacked) {
 	let dir = fs.opendir(`/sys/class/net/${devname}`);
 	let devs = [];
 
@@ -450,9 +450,12 @@ function resolve_lower_devices(devstatus, devname) {
 		case 'bridge':
 			let e;
 
+			if (stacked)
+				push(devs, devname);
+
 			while ((e = dir.read()) != null)
 				if (index(e, "lower_") === 0)
-					push(devs, ...resolve_lower_devices(devstatus, substr(e, 6)));
+					push(devs, ...resolve_lower_devices(devstatus, substr(e, 6), stacked));
 
 			break;
 
@@ -535,27 +538,33 @@ return {
 			bus.disconnect();
 		}
 
-		for (let zone in this.zones())
-			for (let device in zone.related_physdevs)
-				push(devices, ...resolve_lower_devices(devstatus, device));
+		if (this.default_option("flow_offloading_hw")) {
+			for (let zone in this.zones())
+				for (let device in zone.related_physdevs)
+					push(devices, ...resolve_lower_devices(devstatus, device));
 
-		devices = sort(uniq(devices));
+			devices = sort(uniq(devices));
 
-		if (this.default_option("flow_offloading_hw") && length(devices) &&
-		    !nft_try_hw_offload(devices)) {
+			if (!length(devices) || nft_try_hw_offload(devices))
+				return devices;
+
 			this.warn('Hardware flow offloading unavailable, falling back to software offloading');
 			this.state.defaults.flow_offloading_hw = false;
+			devices = [];
 		}
 
-		if (this.default_option("flow_offloading_hw"))
-			return devices;
+		// a flow ends at the first device of its path that runs tc, such
+		// as an SQM shaper on a VLAN, so list the stacked devices as well
+		for (let zone in this.zones())
+			for (let device in zone.related_physdevs)
+				push(devices, ...resolve_lower_devices(devstatus, device, true));
 
 		// devices a zone names directly, such as a bridge of a container runtime
 		for (let zone in this.zones())
 			for (let device in to_array(zone.device))
 				if (!device.invert && device.device != '+')
 					push(devices, ...(device.wildcard ? [ device.device ]
-						: resolve_lower_devices(devstatus, device.device)));
+						: resolve_lower_devices(devstatus, device.device, true)));
 
 		return sort(uniq(devices));
 	},
