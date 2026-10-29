@@ -55,6 +55,27 @@ stop() {
 	} 1000>$LOCK
 }
 
+# Delete the table and load the new ruleset in one nft transaction: with a
+# stop then a start, the router had no fw4 table in between, so no filtering
+# and no NAT. The replies of established masqueraded connections then
+# arrived for the router's own address and were answered with resets.
+restart() {
+	{
+		flock -x 1000
+
+		rm -f $STATE
+
+		{
+			echo "table inet fw4"
+			echo "delete table inet fw4"
+			ACTION=start utpl -S $MAIN
+		} | nft $VERBOSE -f $STDIN
+
+		ACTION=includes \
+			utpl -S $MAIN
+	} 1000>$LOCK
+}
+
 flush() {
 	{
 		flock -x 1000
@@ -106,8 +127,7 @@ case "$1" in
 	;;
 	restart)
 		QUIET=1 print | nft ${VERBOSE} -c -f $STDIN || die "The rendered ruleset contains errors, not doing firewall restart."
-		stop || rm -f $STATE
-		start
+		restart
 	;;
 	check)
 		if [ -n "$QUIET" ]; then
