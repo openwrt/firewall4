@@ -1,0 +1,67 @@
+Testing that software flow offloading leaves out a wildcard zone device
+before Linux 6.17, which refuses a name prefix in a flowtable.
+
+-- Testcase --
+{%
+	fw4.load(false);
+	print(fw4.resolve_offload_devices(), "\n");
+%}
+-- End --
+
+-- File fs/open~_proc_version.txt --
+Linux version 6.12.57 (builder@host) (aarch64-openwrt-linux-musl-gcc) #0 SMP
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{
+	"defaults": [
+		{
+			"flow_offloading": "1"
+		}
+	],
+	"zone": [
+		{
+			"name": "lan",
+			"network": "lan",
+			"auto_helper": 0
+		},
+		{
+			"name": "wan",
+			"network": "wan",
+			"auto_helper": 0
+		},
+		{
+			"name": "docker",
+			"device": [ "docker0", "tap+", "!veth9" ],
+			"auto_helper": 0
+		}
+	]
+}
+-- End --
+
+-- File fs/opendir~_sys_class_net_docker0.json --
+[ "lower_vethc1a2" ]
+-- End --
+
+-- File fs/opendir~_sys_class_net_vethc1a2.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_docker0_uevent.txt --
+DEVTYPE=bridge
+INTERFACE=docker0
+IFINDEX=21
+-- End --
+
+-- File fs/open~_sys_class_net_vethc1a2_uevent.txt --
+INTERFACE=vethc1a2
+IFINDEX=23
+-- End --
+
+-- Expect stdout --
+[ "eth0", "eth1", "vethc1a2" ]
+-- End --

@@ -73,6 +73,18 @@ IFINDEX=8
 []
 -- End --
 
+-- File fs/open~_sys_class_net_wlan0_sta1_uevent.txt --
+DEVTYPE=wlan
+INTERFACE=wlan0.sta1
+IFINDEX=9
+-- End --
+
+-- File fs/open~_sys_class_net_wlan0_sta2_uevent.txt --
+DEVTYPE=wlan
+INTERFACE=wlan0.sta2
+IFINDEX=10
+-- End --
+
 -- File fs/open~_sys_class_net_wlan0_uevent.txt --
 DEVTYPE=wlan
 INTERFACE=wlan0

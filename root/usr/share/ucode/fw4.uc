@@ -478,7 +478,10 @@ function resolve_lower_devices(devstatus, devname, use_prefix) {
 	let devs = [];
 
 	if (dir) {
-		switch (devstatus[devname]?.devtype) {
+		let devtype = devstatus[devname]?.devtype ??
+			match(fs.readfile(`/sys/class/net/${devname}/uevent`), /DEVTYPE=([^\n]+)/)?.[1];
+
+		switch (devtype) {
 		case 'vlan':
 		case 'bridge':
 			let e;
@@ -581,7 +584,19 @@ return {
 			this.state.defaults.flow_offloading_hw = false;
 		}
 
-		return devices;
+		if (this.default_option("flow_offloading_hw"))
+			return devices;
+
+		// devices a zone names directly, such as a bridge of a container
+		// runtime; a wildcard becomes a name prefix, which needs Linux 6.17
+		for (let zone in this.zones())
+			for (let device in to_array(zone.device))
+				if (!device.invert && device.device != '+')
+					push(devices, ...(!device.wildcard
+						? resolve_lower_devices(devstatus, device.device, use_prefix)
+						: use_prefix ? [ device.device ] : []));
+
+		return sort(uniq(devices));
 	},
 
 	check_set_types: function() {
