@@ -2024,7 +2024,8 @@ return {
 			output: [ "policy", "drop" ],
 			forward: [ "policy", "drop" ],
 
-			drop_invalid: [ "bool" ],
+			drop_invalid: [ "bool", "0" ],
+			drop_invalid_early: [ "bool", "0" ],
 			tcp_reject_code: [ "reject_code", "tcp-reset" ],
 			any_reject_code: [ "reject_code", "port-unreachable" ],
 
@@ -2045,6 +2046,10 @@ return {
 			disable_ipv6: [ "bool", null, UNSUPPORTED ],
 			flow_offloading: [ "bool", "0" ],
 			flow_offloading_hw: [ "bool", "0" ],
+			flow_offloading_related: [ "bool", "0"],
+
+			accept_untracked: [ "bool", "1"],
+			forward_untracked: [ "bool", "0"],
 
 			auto_includes: [ "bool", "1" ]
 		});
