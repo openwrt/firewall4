@@ -1,0 +1,890 @@
+Testing that software flow offloading lists, for each encapsulation a
+zone network can use, the devices a flow can end at: the stacked VLAN and
+bridge devices with their lower devices, a PPPoE device with the device
+below it, and a bond, macvlan, VXLAN or tunnel device as itself. The
+interface and device status are those netifd reports for these networks.
+
+-- Testcase --
+{%
+	include("./root/usr/share/firewall4/main.uc", {
+		TRACE_CALLS: "stderr",
+
+		getenv: function(varname) {
+			switch (varname) {
+			case 'ACTION':
+				return 'print';
+			}
+		}
+	})
+%}
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{
+	"defaults": [
+		{
+			"flow_offloading": "1"
+		}
+	],
+	"zone": [
+		{
+			"name": "lan",
+			"network": [
+				"lan",
+				"lanb",
+				"lanv",
+				"lanx",
+				"tvx"
+			],
+			"auto_helper": 0
+		},
+		{
+			"name": "wan",
+			"network": [
+				"wan",
+				"tw1",
+				"tw2",
+				"tw3",
+				"tw4",
+				"tw5",
+				"tw6",
+				"tgre",
+				"tipip",
+				"tsit",
+				"tt6",
+				"twg"
+			],
+			"masq": "1",
+			"auto_helper": 0
+		},
+		{
+			"name": "docker",
+			"device": [
+				"docker0"
+			],
+			"auto_helper": 0
+		}
+	]
+}
+-- End --
+
+-- File ubus/network.interface~dump.json --
+{
+	"interface": [
+		{
+			"interface": "lan",
+			"up": true,
+			"l3_device": "br-lan",
+			"proto": "static",
+			"device": "br-lan",
+			"ipv4-address": [
+				{
+					"address": "192.168.1.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [
+				{
+					"address": "fd00:1::1",
+					"mask": 64
+				}
+			],
+			"data": {}
+		},
+		{
+			"interface": "lanb",
+			"up": true,
+			"l3_device": "br-bd",
+			"proto": "static",
+			"device": "br-bd",
+			"ipv4-address": [
+				{
+					"address": "192.168.60.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [],
+			"data": {}
+		},
+		{
+			"interface": "lanv",
+			"up": true,
+			"l3_device": "br-vl.10",
+			"proto": "static",
+			"device": "br-vl.10",
+			"ipv4-address": [
+				{
+					"address": "192.168.10.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [
+				{
+					"address": "fd00:10::1",
+					"mask": 64
+				}
+			],
+			"data": {}
+		},
+		{
+			"interface": "lanx",
+			"up": true,
+			"l3_device": "br-vx",
+			"proto": "static",
+			"device": "br-vx",
+			"ipv4-address": [
+				{
+					"address": "192.168.70.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [],
+			"data": {}
+		},
+		{
+			"interface": "tgre",
+			"up": true,
+			"l3_device": "gre1",
+			"proto": "static",
+			"device": "gre1",
+			"ipv4-address": [
+				{
+					"address": "10.107.0.1",
+					"mask": 30
+				}
+			],
+			"ipv6-address": [],
+			"data": {}
+		},
+		{
+			"interface": "tipip",
+			"up": true,
+			"l3_device": "ipip1",
+			"proto": "static",
+			"device": "ipip1",
+			"ipv4-address": [
+				{
+					"address": "10.108.0.1",
+					"mask": 30
+				}
+			],
+			"ipv6-address": [],
+			"data": {}
+		},
+		{
+			"interface": "tsit",
+			"up": true,
+			"l3_device": "sit1",
+			"proto": "static",
+			"device": "sit1",
+			"ipv4-address": [],
+			"ipv6-address": [
+				{
+					"address": "fd01:9::1",
+					"mask": 64
+				}
+			],
+			"data": {}
+		},
+		{
+			"interface": "tt6",
+			"up": true,
+			"l3_device": "t6",
+			"proto": "static",
+			"device": "t6",
+			"ipv4-address": [
+				{
+					"address": "10.110.0.1",
+					"mask": 30
+				}
+			],
+			"ipv6-address": [],
+			"data": {}
+		},
+		{
+			"interface": "tvx",
+			"up": true,
+			"l3_device": "vx",
+			"proto": "static",
+			"device": "vx",
+			"ipv4-address": [
+				{
+					"address": "10.77.0.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [],
+			"data": {}
+		},
+		{
+			"interface": "tw1",
+			"up": true,
+			"l3_device": "w1",
+			"proto": "static",
+			"device": "w1",
+			"ipv4-address": [
+				{
+					"address": "10.101.0.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [
+				{
+					"address": "fd01:1::1",
+					"mask": 64
+				}
+			],
+			"data": {}
+		},
+		{
+			"interface": "tw2",
+			"up": true,
+			"l3_device": "w2.7",
+			"proto": "static",
+			"device": "w2.7",
+			"ipv4-address": [
+				{
+					"address": "10.102.0.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [
+				{
+					"address": "fd01:2::1",
+					"mask": 64
+				}
+			],
+			"data": {}
+		},
+		{
+			"interface": "tw3",
+			"up": true,
+			"l3_device": "w3.100.7",
+			"proto": "static",
+			"device": "w3.100.7",
+			"ipv4-address": [
+				{
+					"address": "10.103.0.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [
+				{
+					"address": "fd01:3::1",
+					"mask": 64
+				}
+			],
+			"data": {}
+		},
+		{
+			"interface": "tw4",
+			"up": true,
+			"l3_device": "pppoe-tw4",
+			"proto": "pppoe",
+			"device": "w4",
+			"ipv4-address": [
+				{
+					"address": "10.104.0.1",
+					"mask": 32,
+					"ptpaddress": "10.104.0.2"
+				}
+			],
+			"ipv6-address": [
+				{
+					"address": "fe80::1",
+					"mask": 128
+				}
+			],
+			"data": {}
+		},
+		{
+			"interface": "tw5",
+			"up": true,
+			"l3_device": "pppoe-tw5",
+			"proto": "pppoe",
+			"device": "w5.7",
+			"ipv4-address": [
+				{
+					"address": "10.105.0.1",
+					"mask": 32,
+					"ptpaddress": "10.105.0.2"
+				}
+			],
+			"ipv6-address": [
+				{
+					"address": "fe80::1",
+					"mask": 128
+				}
+			],
+			"data": {}
+		},
+		{
+			"interface": "tw6",
+			"up": true,
+			"l3_device": "mv6",
+			"proto": "static",
+			"device": "mv6",
+			"ipv4-address": [
+				{
+					"address": "10.106.0.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [
+				{
+					"address": "fd01:6::1",
+					"mask": 64
+				}
+			],
+			"data": {}
+		},
+		{
+			"interface": "twg",
+			"up": true,
+			"l3_device": "twg",
+			"proto": "wireguard",
+			"ipv4-address": [
+				{
+					"address": "10.111.0.1",
+					"mask": 30
+				}
+			],
+			"ipv6-address": [
+				{
+					"address": "fd01:11::1",
+					"mask": 64
+				}
+			],
+			"data": {}
+		},
+		{
+			"interface": "wan",
+			"up": true,
+			"l3_device": "eth1",
+			"proto": "dhcp",
+			"device": "eth1",
+			"ipv4-address": [
+				{
+					"address": "10.0.2.15",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [],
+			"data": {
+				"dhcpserver": "10.0.2.2",
+				"leasetime": 86400
+			}
+		}
+	]
+}
+-- End --
+
+-- File ubus/network.device~status.json --
+{
+	"ba": {
+		"devtype": "ethernet"
+	},
+	"bb": {
+		"devtype": "ethernet"
+	},
+	"bond0": {
+		"devtype": "bond"
+	},
+	"br-bd": {
+		"devtype": "bridge"
+	},
+	"br-lan": {
+		"devtype": "bridge"
+	},
+	"br-vl": {
+		"devtype": "bridge"
+	},
+	"br-vl.10": {
+		"devtype": "vlan"
+	},
+	"br-vx": {
+		"devtype": "bridge"
+	},
+	"eth0": {
+		"devtype": "ethernet"
+	},
+	"eth1": {
+		"devtype": "ethernet"
+	},
+	"mv6": {
+		"devtype": "ethernet"
+	},
+	"ra": {
+		"devtype": "ethernet"
+	},
+	"vt1": {
+		"devtype": "ethernet"
+	},
+	"vt2": {
+		"devtype": "ethernet"
+	},
+	"vx": {
+		"devtype": "ethernet"
+	},
+	"vxl0": {
+		"devtype": "vxlan"
+	},
+	"w1": {
+		"devtype": "ethernet"
+	},
+	"w2": {
+		"devtype": "ethernet"
+	},
+	"w2.7": {
+		"devtype": "vlan"
+	},
+	"w3": {
+		"devtype": "ethernet"
+	},
+	"w3.100": {
+		"devtype": "vlan"
+	},
+	"w3.100.7": {
+		"devtype": "vlan"
+	},
+	"w4": {
+		"devtype": "ethernet"
+	},
+	"w5": {
+		"devtype": "ethernet"
+	},
+	"w5.7": {
+		"devtype": "vlan"
+	},
+	"w6": {
+		"devtype": "ethernet"
+	}
+}
+-- End --
+
+-- File fs/opendir~_sys_class_net_bond0.json --
+["lower_ba", "lower_bb"]
+-- End --
+
+-- File fs/opendir~_sys_class_net_br-bd.json --
+["lower_bond0"]
+-- End --
+
+-- File fs/opendir~_sys_class_net_br-lan.json --
+["lower_eth0", "lower_ra"]
+-- End --
+
+-- File fs/opendir~_sys_class_net_br-vl.json --
+["lower_vt1", "lower_vt2"]
+-- End --
+
+-- File fs/opendir~_sys_class_net_br-vl_10.json --
+["lower_br-vl"]
+-- End --
+
+-- File fs/opendir~_sys_class_net_br-vx.json --
+["lower_vxl0"]
+-- End --
+
+-- File fs/opendir~_sys_class_net_dk3.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_dk3_uevent.txt --
+INTERFACE=dk3
+-- End --
+
+-- File fs/opendir~_sys_class_net_docker0.json --
+["lower_dk3"]
+-- End --
+
+-- File fs/open~_sys_class_net_docker0_uevent.txt --
+DEVTYPE=bridge
+INTERFACE=docker0
+-- End --
+
+-- File fs/opendir~_sys_class_net_eth0.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_eth1.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_gre1.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_gre1_uevent.txt --
+INTERFACE=gre1
+-- End --
+
+-- File fs/opendir~_sys_class_net_ipip1.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_ipip1_uevent.txt --
+INTERFACE=ipip1
+-- End --
+
+-- File fs/opendir~_sys_class_net_mv6.json --
+["lower_w6"]
+-- End --
+
+-- File fs/opendir~_sys_class_net_pppoe-tw4.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_pppoe-tw4_uevent.txt --
+DEVTYPE=ppp
+INTERFACE=pppoe-tw4
+-- End --
+
+-- File fs/opendir~_sys_class_net_pppoe-tw5.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_pppoe-tw5_uevent.txt --
+DEVTYPE=ppp
+INTERFACE=pppoe-tw5
+-- End --
+
+-- File fs/opendir~_sys_class_net_ra.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_sit1.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_sit1_uevent.txt --
+INTERFACE=sit1
+-- End --
+
+-- File fs/opendir~_sys_class_net_t6.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_t6_uevent.txt --
+INTERFACE=t6
+-- End --
+
+-- File fs/opendir~_sys_class_net_twg.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_twg_uevent.txt --
+DEVTYPE=wireguard
+INTERFACE=twg
+-- End --
+
+-- File fs/opendir~_sys_class_net_vt1.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_vt2.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_vx.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_vxl0.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_w1.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_w2.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_w2_7.json --
+["lower_w2"]
+-- End --
+
+-- File fs/opendir~_sys_class_net_w3.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_w3_100.json --
+["lower_w3"]
+-- End --
+
+-- File fs/opendir~_sys_class_net_w3_100_7.json --
+["lower_w3.100"]
+-- End --
+
+-- File fs/opendir~_sys_class_net_w4.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_w5.json --
+[]
+-- End --
+
+-- File fs/opendir~_sys_class_net_w5_7.json --
+["lower_w5"]
+-- End --
+
+-- Expect stdout --
+table inet fw4
+flush table inet fw4
+
+table inet fw4 {
+	#
+	# Flowtable
+	#
+
+	flowtable ft {
+		hook ingress priority 0;
+		devices = { "bond0", "br-bd", "br-lan", "br-vl", "br-vl.10", "br-vx", "dk3", "docker0", "eth0", "eth1", "gre1", "ipip1", "mv6", "pppoe-tw4", "pppoe-tw5", "ra", "sit1", "t6", "twg", "vt1", "vt2", "vx", "vxl0", "w1", "w2", "w2.7", "w3", "w3.100", "w3.100.7", "w4", "w5", "w5.7" };
+		counter;
+	}
+
+
+	#
+	# Defines
+	#
+
+	define lan_devices = { "br-lan", "br-bd", "br-vl.10", "br-vx", "vx" }
+	define lan_subnets = { 192.168.1.0/24, fd00:1::/64, 192.168.60.0/24, 192.168.10.0/24, fd00:10::/64, 192.168.70.0/24, 10.77.0.0/24 }
+
+	define wan_devices = { "eth1", "w1", "w2.7", "w3.100.7", "pppoe-tw4", "pppoe-tw5", "mv6", "gre1", "ipip1", "sit1", "t6", "twg" }
+	define wan_subnets = { 10.0.2.0/24, 10.101.0.0/24, fd01:1::/64, 10.102.0.0/24, fd01:2::/64, 10.103.0.0/24, fd01:3::/64, 10.104.0.1, fe80::1, 10.105.0.1, 10.106.0.0/24, fd01:6::/64, 10.107.0.0/30, 10.108.0.0/30, fd01:9::/64, 10.110.0.0/30, 10.111.0.0/30, fd01:11::/64 }
+
+	define docker_devices = { "docker0" }
+	define docker_subnets = {  }
+
+
+	#
+	# User includes
+	#
+
+	include "/etc/nftables.d/*.nft"
+
+
+	#
+	# Filter rules
+	#
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iif "lo" accept comment "!fw4: Accept traffic from loopback"
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
+		iifname { "br-lan", "br-bd", "br-vl.10", "br-vx", "vx" } jump input_lan comment "!fw4: Handle lan IPv4/IPv6 input traffic"
+		iifname { "eth1", "w1", "w2.7", "w3.100.7", "pppoe-tw4", "pppoe-tw5", "mv6", "gre1", "ipip1", "sit1", "t6", "twg" } jump input_wan comment "!fw4: Handle wan IPv4/IPv6 input traffic"
+		iifname "docker0" jump input_docker comment "!fw4: Handle docker IPv4/IPv6 input traffic"
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		meta l4proto { tcp, udp } flow offload @ft;
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
+		iifname { "br-lan", "br-bd", "br-vl.10", "br-vx", "vx" } jump forward_lan comment "!fw4: Handle lan IPv4/IPv6 forward traffic"
+		iifname { "eth1", "w1", "w2.7", "w3.100.7", "pppoe-tw4", "pppoe-tw5", "mv6", "gre1", "ipip1", "sit1", "t6", "twg" } jump forward_wan comment "!fw4: Handle wan IPv4/IPv6 forward traffic"
+		iifname "docker0" jump forward_docker comment "!fw4: Handle docker IPv4/IPv6 forward traffic"
+	}
+
+	chain output {
+		type filter hook output priority filter; policy drop;
+
+		oif "lo" accept comment "!fw4: Accept traffic towards loopback"
+
+		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
+		oifname { "br-lan", "br-bd", "br-vl.10", "br-vx", "vx" } jump output_lan comment "!fw4: Handle lan IPv4/IPv6 output traffic"
+		oifname { "eth1", "w1", "w2.7", "w3.100.7", "pppoe-tw4", "pppoe-tw5", "mv6", "gre1", "ipip1", "sit1", "t6", "twg" } jump output_wan comment "!fw4: Handle wan IPv4/IPv6 output traffic"
+		oifname "docker0" jump output_docker comment "!fw4: Handle docker IPv4/IPv6 output traffic"
+	}
+
+	chain prerouting {
+		type filter hook prerouting priority filter; policy accept;
+	}
+
+	chain handle_reject {
+		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
+		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
+	}
+
+	chain input_lan {
+		jump drop_from_lan
+	}
+
+	chain output_lan {
+		jump drop_to_lan
+	}
+
+	chain forward_lan {
+		jump drop_to_lan
+	}
+
+	chain drop_from_lan {
+		iifname { "br-lan", "br-bd", "br-vl.10", "br-vx", "vx" } counter drop comment "!fw4: drop lan IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_lan {
+		oifname { "br-lan", "br-bd", "br-vl.10", "br-vx", "vx" } counter drop comment "!fw4: drop lan IPv4/IPv6 traffic"
+	}
+
+	chain input_wan {
+		jump drop_from_wan
+	}
+
+	chain output_wan {
+		jump drop_to_wan
+	}
+
+	chain forward_wan {
+		jump drop_to_wan
+	}
+
+	chain drop_from_wan {
+		iifname { "eth1", "w1", "w2.7", "w3.100.7", "pppoe-tw4", "pppoe-tw5", "mv6", "gre1", "ipip1", "sit1", "t6", "twg" } counter drop comment "!fw4: drop wan IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_wan {
+		oifname { "eth1", "w1", "w2.7", "w3.100.7", "pppoe-tw4", "pppoe-tw5", "mv6", "gre1", "ipip1", "sit1", "t6", "twg" } counter drop comment "!fw4: drop wan IPv4/IPv6 traffic"
+	}
+
+	chain input_docker {
+		jump drop_from_docker
+	}
+
+	chain output_docker {
+		jump drop_to_docker
+	}
+
+	chain forward_docker {
+		jump drop_to_docker
+	}
+
+	chain drop_from_docker {
+		iifname "docker0" counter drop comment "!fw4: drop docker IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_docker {
+		oifname "docker0" counter drop comment "!fw4: drop docker IPv4/IPv6 traffic"
+	}
+
+
+	#
+	# NAT rules
+	#
+
+	chain dstnat {
+		type nat hook prerouting priority dstnat; policy accept;
+	}
+
+	chain srcnat {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname { "eth1", "w1", "w2.7", "w3.100.7", "pppoe-tw4", "pppoe-tw5", "mv6", "gre1", "ipip1", "sit1", "t6", "twg" } jump srcnat_wan comment "!fw4: Handle wan IPv4/IPv6 srcnat traffic"
+	}
+
+	chain srcnat_wan {
+		meta nfproto ipv4 masquerade comment "!fw4: Masquerade IPv4 wan traffic"
+	}
+
+
+	#
+	# Raw rules (notrack)
+	#
+
+	chain raw_prerouting {
+		type filter hook prerouting priority raw; policy accept;
+	}
+
+	chain raw_output {
+		type filter hook output priority raw; policy accept;
+	}
+
+
+	#
+	# Mangle rules
+	#
+
+	chain mangle_prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+	}
+
+	chain mangle_postrouting {
+		type filter hook postrouting priority mangle; policy accept;
+	}
+
+	chain mangle_input {
+		type filter hook input priority mangle; policy accept;
+	}
+
+	chain mangle_output {
+		type route hook output priority mangle; policy accept;
+	}
+
+	chain mangle_forward {
+		type filter hook forward priority mangle; policy accept;
+	}
+}
+-- End --
+
+-- Expect stderr --
+[call] ctx.call object <network.interface> method <dump> args <null>
+[call] ctx.call object <service> method <get_data> args <{ "type": "firewall" }>
+[call] fs.open path </proc/version> mode <r>
+[call] fs.glob pattern </usr/share/nftables.d/ruleset-pre/*.nft>
+[call] fs.glob pattern </usr/share/nftables.d/ruleset-post/*.nft>
+[call] fs.glob pattern </usr/share/nftables.d/table-pre/*.nft>
+[call] fs.glob pattern </usr/share/nftables.d/table-post/*.nft>
+[call] fs.lsdir path </usr/share/nftables.d/chain-pre>
+[call] fs.lsdir path </usr/share/nftables.d/chain-post>
+[call] ctx.call object <network.device> method <status> args <null>
+[call] fs.opendir path </sys/class/net/br-lan>
+[call] fs.opendir path </sys/class/net/eth0>
+[call] fs.opendir path </sys/class/net/ra>
+[call] fs.opendir path </sys/class/net/br-bd>
+[call] fs.opendir path </sys/class/net/bond0>
+[call] fs.opendir path </sys/class/net/br-vl.10>
+[call] fs.opendir path </sys/class/net/br-vl>
+[call] fs.opendir path </sys/class/net/vt1>
+[call] fs.opendir path </sys/class/net/vt2>
+[call] fs.opendir path </sys/class/net/br-vx>
+[call] fs.opendir path </sys/class/net/vxl0>
+[call] fs.opendir path </sys/class/net/vx>
+[call] fs.opendir path </sys/class/net/eth1>
+[call] fs.opendir path </sys/class/net/w1>
+[call] fs.opendir path </sys/class/net/w2.7>
+[call] fs.opendir path </sys/class/net/w2>
+[call] fs.opendir path </sys/class/net/w3.100.7>
+[call] fs.opendir path </sys/class/net/w3.100>
+[call] fs.opendir path </sys/class/net/w3>
+[call] fs.opendir path </sys/class/net/w4>
+[call] fs.opendir path </sys/class/net/w5.7>
+[call] fs.opendir path </sys/class/net/w5>
+[call] fs.opendir path </sys/class/net/mv6>
+[call] fs.opendir path </sys/class/net/gre1>
+[call] fs.readfile path </sys/class/net/gre1/uevent> limit <null>
+[call] fs.opendir path </sys/class/net/ipip1>
+[call] fs.readfile path </sys/class/net/ipip1/uevent> limit <null>
+[call] fs.opendir path </sys/class/net/sit1>
+[call] fs.readfile path </sys/class/net/sit1/uevent> limit <null>
+[call] fs.opendir path </sys/class/net/t6>
+[call] fs.readfile path </sys/class/net/t6/uevent> limit <null>
+[call] fs.opendir path </sys/class/net/pppoe-tw4>
+[call] fs.readfile path </sys/class/net/pppoe-tw4/uevent> limit <null>
+[call] fs.opendir path </sys/class/net/pppoe-tw5>
+[call] fs.readfile path </sys/class/net/pppoe-tw5/uevent> limit <null>
+[call] fs.opendir path </sys/class/net/twg>
+[call] fs.readfile path </sys/class/net/twg/uevent> limit <null>
+[call] fs.opendir path </sys/class/net/docker0>
+[call] fs.readfile path </sys/class/net/docker0/uevent> limit <null>
+[call] fs.opendir path </sys/class/net/dk3>
+[call] fs.readfile path </sys/class/net/dk3/uevent> limit <null>
+[call] fs.popen cmdline </usr/sbin/nft --terse --json list flowtables inet> mode <r>
+-- End --

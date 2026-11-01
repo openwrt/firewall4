@@ -26,7 +26,7 @@ table inet fw4 {
 
 	flowtable ft {
 		hook ingress priority 0;
-		devices = { "eth0", "eth1" };
+		devices = { "br-lan", "eth0", "eth1", "pppoe-wan" };
 		counter;
 		flags offload;
 	}
@@ -316,11 +316,13 @@ table inet fw4 {
 [call] fs.opendir path </sys/class/net/br-lan>
 [call] fs.opendir path </sys/class/net/eth0>
 [call] fs.opendir path </sys/class/net/eth1>
+[call] fs.opendir path </sys/class/net/pppoe-wan>
+[call] fs.readfile path </sys/class/net/pppoe-wan/uevent> limit <null>
 [call] system command </usr/sbin/nft -c '
 		add table inet fw4-hw-offload-test;
 		add flowtable inet fw4-hw-offload-test ft {
 			hook ingress priority 0;
-			devices = { "eth0", "eth1" };
+			devices = { "br-lan", "eth0", "eth1", "pppoe-wan" };
 			flags offload;
 		}
 	' 2>/dev/null> timeout <null>
