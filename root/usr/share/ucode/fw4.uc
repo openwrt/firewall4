@@ -441,11 +441,23 @@ function map_setmatch(set, match, proto) {
 const IFNAMSIZ = 16;
 const wds_port_re = /^(.+)\.sta[0-9]+$/;
 const wireless_uevent_re = /^DEVTYPE=wlan$/;
+const hook_prefix_re = /\*$/;
+const wireless_name_re = /^[^"\/: \t\n]+$/s;
 
 function device_is_wireless(devname) {
 	let uevent = fs.readfile(`/sys/class/net/${devname}/uevent`);
 
 	return uevent != null && match(uevent, wireless_uevent_re) != null;
+}
+
+/* A port name needs the prefix and at least one digit within IFNAMSIZ - 1
+   characters, and the kernel keeps the prefix in a buffer of IFNAMSIZ. A
+   longer BSS cannot have a WDS port. */
+function wds_port_names(devname) {
+	if (length(devname) + length(".sta0") >= IFNAMSIZ)
+		return [ devname ];
+
+	return [ devname, `${devname}.sta*` ];
 }
 
 /* hostapd creates the port of a 4-address station as <bss>.sta<aid> when
@@ -464,13 +476,112 @@ function resolve_hw_offload_port(devname, use_prefix) {
 	if (m)
 		return [ `${m[1]}.sta*` ];
 
-	/* A port name needs the prefix and at least one digit within
-	   IFNAMSIZ - 1 characters, and the kernel keeps the prefix in a buffer
-	   of IFNAMSIZ. A longer member cannot have a WDS port. */
-	if (!device_is_wireless(devname) || length(devname) + length(".sta0") >= IFNAMSIZ)
+	if (!device_is_wireless(devname))
 		return [ devname ];
 
-	return [ devname, `${devname}.sta*` ];
+	return wds_port_names(devname);
+}
+
+/* A configured name, unlike a name from sysfs, can hold a character that the
+   kernel refuses or that breaks the quoting of the list. One such name fails
+   the check of hardware offload for every device. */
+function wireless_name_valid(ifname) {
+	return type(ifname) == "string" && length(ifname) < IFNAMSIZ &&
+		match(ifname, wireless_name_re) != null;
+}
+
+/* hostapd creates the interface of a wifi-vlan with a VLAN ID as
+   <ifname>-<name> when it sets up the BSS. */
+function wireless_vlan_devices(vlans, parent_ifname, network) {
+	let devs = [];
+
+	for (let vlan in vlans) {
+		if (type(vlan) != "object" || index(to_array(vlan.config?.network), network) < 0)
+			continue;
+
+		let ifname = vlan.ifname;
+
+		if (ifname == null && wireless_name_valid(parent_ifname) &&
+		    vlan.config?.name != null && vlan.config?.vid != null)
+			ifname = `${parent_ifname}-${vlan.config.name}`;
+
+		if (wireless_name_valid(ifname))
+			push(devs, ifname);
+	}
+
+	return devs;
+}
+
+function wireless_iface_devices(iface, network) {
+	let ifname = iface.ifname ?? iface.config?.ifname;
+	let devs = (type(iface.vlans) == "array")
+		? wireless_vlan_devices(iface.vlans, ifname, network) : [];
+
+	if (!wireless_name_valid(ifname) || index(to_array(iface.config?.network), network) < 0)
+		return devs;
+
+	if (iface.config?.mode == 'ap')
+		push(devs, ...wds_port_names(ifname));
+	else
+		push(devs, ifname);
+
+	return devs;
+}
+
+/* hostapd creates a BSS after the setup of its radio, which can follow a
+   DFS CAC, and the reloads at boot can all run before that. Since Linux
+   6.16 the kernel binds a flowtable hook to a device that registers later
+   under a listed name, so list every wireless interface of a zone network
+   that has a name, present or not. */
+function wireless_network_devices(wstatus, network) {
+	let devs = [];
+
+	for (let rstatus in values(wstatus)) {
+		if (type(rstatus) != "object" || rstatus.disabled || type(rstatus.interfaces) != "array")
+			continue;
+
+		for (let iface in rstatus.interfaces)
+			if (type(iface) == "object")
+				push(devs, ...wireless_iface_devices(iface, network));
+	}
+
+	return devs;
+}
+
+function wireless_zone_devices(wstatus, zone) {
+	let devs = [];
+
+	for (let e in zone.network)
+		if (!e.invert)
+			push(devs, ...wireless_network_devices(wstatus, e.device));
+
+	return devs;
+}
+
+function hook_under_prefix(dev, prefixes) {
+	let name = replace(dev, hook_prefix_re, '');
+
+	for (let prefix in prefixes) {
+		if (index(name, prefix) != 0)
+			continue;
+
+		if (name != prefix || dev == name)
+			return true;
+	}
+
+	return false;
+}
+
+/* The kernel refuses a hook list that holds a prefix and a name or another
+   prefix under it, and a name equal to the stem of a prefix. */
+function drop_names_under_prefix(devices) {
+	let prefixes = [];
+
+	for (let dev in devices)
+		if (match(dev, hook_prefix_re))
+			push(prefixes, substr(dev, 0, length(dev) - 1));
+
+	return filter(devices, dev => !hook_under_prefix(dev, prefixes));
 }
 
 function resolve_lower_devices(devstatus, devname, use_prefix) {
@@ -560,23 +671,33 @@ return {
 			return null;
 
 		let devstatus = null;
+		let wstatus = null;
 		let devices = null;
 		let use_prefix = (this.kernel >= 0x06110000);
 		let bus = ubus.connect();
 
 		if (bus) {
 			devstatus = bus.call("network.device", "status") || {};
+
+			if (use_prefix)
+				wstatus = bus.call("network.wireless", "status");
+
 			bus.disconnect();
 		}
 
-		for (let zone in this.zones())
+		for (let zone in this.zones()) {
 			for (let device in zone.related_physdevs)
 				push(devices ||= [], ...resolve_lower_devices(devstatus, device, use_prefix));
+
+			if (type(wstatus) == "object")
+				for (let device in wireless_zone_devices(wstatus, zone))
+					push(devices ||= [], device);
+		}
 
 		if (!devices)
 			return null;
 
-		devices = sort(uniq(devices));
+		devices = drop_names_under_prefix(sort(uniq(devices)));
 
 		if (!nft_try_hw_offload(devices)) {
 			this.warn('Hardware flow offloading unavailable, falling back to software offloading');

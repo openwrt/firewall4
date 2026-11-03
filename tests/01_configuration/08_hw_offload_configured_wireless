@@ -1,0 +1,185 @@
+Testing that the hardware offload flowtable lists each configured wireless
+interface of a zone network, present in sysfs or not: an AP with its WDS
+port prefix, another mode by name, and a wifi-vlan by the name that the
+status reports or, if it has a VLAN ID, by <ifname>-<name>. An interface
+of a disabled radio, of a network outside the zones, without a name, or
+with a name too long for a hook or with a character that a hook cannot
+take is left out, and so is a name or a prefix under another listed prefix,
+because the kernel refuses such a list. A radio that waits for its CAC keeps
+its interfaces. Entries of the status that are not objects are skipped.
+
+-- Testcase --
+{%
+	fw4.load(false);
+	print(fw4.resolve_offload_devices(), "\n");
+%}
+-- End --
+
+-- File fs/open~_proc_version.txt --
+Linux version 6.18.55 (builder@host) (aarch64-openwrt-linux-musl-gcc) #0 SMP
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{
+	"defaults": [
+		{
+			"flow_offloading": 1,
+			"flow_offloading_hw": 1
+		}
+	],
+	"zone": [
+		{
+			"name": "lan",
+			"network": "lan",
+			"auto_helper": 0
+		},
+		{
+			"name": "wan",
+			"network": "wan",
+			"auto_helper": 0
+		}
+	]
+}
+-- End --
+
+-- File fs/opendir~_sys_class_net_br-lan.json --
+[
+	"lower_eth0",
+	"lower_wlan0"
+]
+-- End --
+
+-- File fs/opendir~_sys_class_net_wlan0.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_wlan0_uevent.txt --
+DEVTYPE=wlan
+INTERFACE=wlan0
+IFINDEX=7
+-- End --
+
+-- File ubus/network.wireless~status.json --
+{
+	"radio0": {
+		"up": true,
+		"pending": false,
+		"disabled": false,
+		"interfaces": [
+			{
+				"section": "ap_lan",
+				"ifname": "wlan0",
+				"config": { "mode": "ap", "network": [ "lan" ], "ifname": "wlan0" },
+				"vlans": [ ],
+				"stations": [ ]
+			},
+			{
+				"section": "ap_lan_late",
+				"ifname": "wlan1",
+				"config": { "mode": "ap", "network": [ "lan" ], "ifname": "wlan1" }
+			},
+			{
+				"section": "sta_lan",
+				"config": { "mode": "sta", "network": [ "lan" ], "ifname": "wlan2" }
+			},
+			{
+				"section": "ap_guest",
+				"ifname": "wlan3",
+				"config": { "mode": "ap", "network": [ "guest" ], "ifname": "wlan3" }
+			},
+			{
+				"section": "ap_noname",
+				"config": { "mode": "ap", "network": [ "lan" ] }
+			},
+			{
+				"section": "ap_wan_long",
+				"ifname": "wlan0-long-wds",
+				"config": { "mode": "ap", "network": "wan", "ifname": "wlan0-long-wds" }
+			},
+			{
+				"section": "ap_too_long",
+				"ifname": "wlan0-way-too-long",
+				"config": { "mode": "ap", "network": [ "lan" ], "ifname": "wlan0-way-too-long" }
+			},
+			{
+				"section": "ap_bad_name",
+				"config": { "mode": "ap", "network": [ "lan" ], "ifname": "wlan\"7" }
+			},
+			{
+				"section": "ap_port_name",
+				"ifname": "wlan0.sta7",
+				"config": { "mode": "ap", "network": [ "lan" ], "ifname": "wlan0.sta7" }
+			},
+			{
+				"section": "sta_prefix_stem",
+				"ifname": "wlan0.sta",
+				"config": { "mode": "sta", "network": [ "lan" ], "ifname": "wlan0.sta" }
+			},
+			{
+				"section": "ap_vlans",
+				"ifname": "wlan4",
+				"config": { "mode": "ap", "network": [ "lan" ], "ifname": "wlan4" },
+				"vlans": [
+					{
+						"section": "v10",
+						"ifname": "wlan4-v10",
+						"config": { "name": "v10", "vid": "10", "network": [ "lan" ] }
+					},
+					{
+						"section": "v20",
+						"config": { "name": "v20", "vid": "20", "network": [ "guest" ] }
+					},
+					{
+						"section": "v30",
+						"config": { "name": "v30", "vid": "30", "network": [ "lan" ] }
+					},
+					{
+						"section": "v40",
+						"config": { "name": "v40", "network": [ "lan" ] }
+					},
+					"bogus"
+				]
+			},
+			"bogus"
+		]
+	},
+	"radio1": {
+		"up": false,
+		"pending": false,
+		"disabled": true,
+		"interfaces": [
+			{
+				"section": "ap_off",
+				"ifname": "wlan5",
+				"config": { "mode": "ap", "network": [ "lan" ], "ifname": "wlan5" }
+			}
+		]
+	},
+	"radio2": null,
+	"radio3": {
+		"up": false,
+		"pending": true,
+		"disabled": false,
+		"interfaces": [
+			{
+				"section": "ap_cac",
+				"config": { "mode": "ap", "network": [ "lan" ], "ifname": "wlan6" }
+			}
+		]
+	},
+	"radio4": {
+		"up": true,
+		"pending": false,
+		"disabled": false,
+		"interfaces": "bogus"
+	}
+}
+-- End --
+
+-- Expect stdout --
+[ "eth0", "eth1", "wlan0", "wlan0-long-wds", "wlan0.sta*", "wlan1", "wlan1.sta*", "wlan2", "wlan4", "wlan4-v10", "wlan4-v30", "wlan4.sta*", "wlan6", "wlan6.sta*" ]
+-- End --

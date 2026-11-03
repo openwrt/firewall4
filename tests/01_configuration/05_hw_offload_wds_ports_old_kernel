@@ -1,6 +1,7 @@
 Testing that on a kernel before 6.17, which has no name prefixes in a
 flowtable, the hardware offload flowtable lists the WDS station ports by
-name, as before, and no member gets a prefix.
+name, as before, no member gets a prefix, and an absent configured
+interface is not listed.
 
 -- Testcase --
 {%
@@ -76,6 +77,22 @@ IFINDEX=8
 DEVTYPE=wlan
 INTERFACE=wlan0
 IFINDEX=7
+-- End --
+
+-- File ubus/network.wireless~status.json --
+{
+	"radio0": {
+		"up": true,
+		"disabled": false,
+		"interfaces": [
+			{
+				"section": "ap_lan_late",
+				"ifname": "wlan9",
+				"config": { "mode": "ap", "network": [ "lan" ], "ifname": "wlan9" }
+			}
+		]
+	}
+}
 -- End --
 
 -- Expect stdout --
