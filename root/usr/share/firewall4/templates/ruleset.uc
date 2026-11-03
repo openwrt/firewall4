@@ -433,7 +433,7 @@ table inet fw4 {
 {% for (let zone in fw4.zones()): %}
 {%  if (zone.mtu_fix): %}
 {%   for (let rule in zone.match_rules): %}
-		{%+ include("zone-mssfix.uc", { fw4, zone, rule, egress: true }) %}
+		ct state ! invalid,untracked ct status ! assured {%+ include("zone-mssfix.uc", { fw4, zone, rule, egress: true }) %}
 {%   endfor %}
 {%  endif %}
 {% endfor %}
@@ -467,7 +467,7 @@ table inet fw4 {
 {% for (let zone in fw4.zones()): %}
 {%  if (zone.mtu_fix): %}
 {%   for (let rule in zone.match_rules): %}
-		{%+ include("zone-mssfix.uc", { fw4, zone, rule, egress: false }) %}
+		ct state ! invalid,untracked ct status ! assured {%+ include("zone-mssfix.uc", { fw4, zone, rule, egress: false }) %}
 {%   endfor %}
 {%  endif %}
 {% endfor %}
