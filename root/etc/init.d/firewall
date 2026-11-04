@@ -18,7 +18,7 @@ start_service() {
 }
 
 stop_service() {
-	fw4 flush
+	fw4 stop
 }
 
 reload_service() {
@@ -30,4 +30,14 @@ boot() {
 	# so don't complain in syslog.
 	QUIET=-q
 	start
+}
+
+extra_command "flush" "Delete nftables ruleset (including non-fw4 rules)"
+flush () {
+	fw4 flush
+}
+
+extra_command "check" "Dry-run - check ruleset correctness without loading"
+check () {
+	fw4 check
 }
