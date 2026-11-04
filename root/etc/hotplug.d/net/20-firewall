@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# hostapd creates and renames Wi-Fi netdevs after fw4 wrote the ruleset:
+# a BSS, a dynamic VLAN, a WDS port. With hardware offload, fw4 lists the
+# Wi-Fi ports of each zone, so add each new one to the live flowtable
+# instead of a full reload. A monitor interface carries no Ethernet
+# frames, so it gets no hook.
+
+[ "$ACTION" = add -o "$ACTION" = move ] || exit 0
+[ "$DEVTYPE" = wlan ] || exit 0
+[ "$(cat "/sys/class/net/$INTERFACE/type" 2>/dev/null)" = 1 ] || exit 0
+
+/etc/init.d/firewall enabled || exit 0
+
+{
+	flock -x 1000
+
+	nft list flowtable inet fw4 ft 2>/dev/null | grep -q 'flags offload' || exit 0
+
+	# nft needs the hook of the flowtable, and the kernel refuses an update
+	# that changes its priority or its offload flag, so repeat both as the
+	# ruleset template writes them.
+	nft add flowtable inet fw4 ft \
+		"{ hook ingress priority 0; devices = { \"$INTERFACE\" }; flags offload; }" ||
+		logger -t firewall "Unable to add $INTERFACE to the flowtable"
+} 1000>/var/run/fw4.lock
