@@ -1,0 +1,17 @@
+#!/bin/sh
+
+[ "$ACTION" = add -o "$ACTION" = move ] || exit 0
+[ "$DEVTYPE" = wlan ] || exit 0
+[ "$(cat "/sys/class/net/$INTERFACE/type" 2>/dev/null)" = 1 ] || exit 0
+
+/etc/init.d/firewall enabled || exit 0
+
+{
+	flock -x 1000
+	ft=$(nft list flowtable inet fw4 ft 2>/dev/null) || exit 0
+	flags=
+	case "$ft" in *"flags offload"*) flags="flags offload;" ;; esac
+	nft add flowtable inet fw4 ft \
+		"{ hook ingress priority 0; devices = { \"$INTERFACE\" }; counter; $flags }" ||
+		logger -t firewall "Unable to add $INTERFACE to the flowtable"
+} 1000>/var/run/fw4.lock
