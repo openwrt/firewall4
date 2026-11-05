@@ -1,7 +1,6 @@
 ## The firewall4 input, forward and output chains are registered with
 ## priority `filter` (0).
 
-
 ## Uncomment the chains below if you want to stage rules *before* the
 ## default firewall input, forward and output chains.
 
@@ -35,5 +34,26 @@
 # chain user_post_output {
 #     type filter hook output priority 1; policy accept;
 #     ct state new log prefix "Firewall4 accepted egress: "
+# }
+
+## Uncomment the chains below to stage nftrace instrumentation
+## at the beginning of  both base chains filtering packets first
+## Example enables tracing of DNS packets to limit output volume
+## Adjust to Your requirements and observe output using
+## root@OpenWRT:~# nft monitor trace
+
+#     chain raw_prerouting {
+#     type filter hook prerouting priority raw; policy accept;
+#     jump trace_chain
+# }
+#
+# chain raw_output {
+#     type filter hook output priority raw; policy accept;
+#     jump trace_chain
+# }
+#
+# chain trace_chain {
+#     meta l4proto {tcp,udp} th sport . th dport { 53 . 0-65535, 0-65535 . 53 } meta nftrace set 1
+#     # meta nftrace set 1
 # }
 
