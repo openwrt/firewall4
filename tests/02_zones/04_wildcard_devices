@@ -82,9 +82,7 @@ Test that wildcard devices are properly handled.
 -- End --
 
 -- Expect stdout --
-table inet fw4
-flush table inet fw4
-
+destroy table inet fw4
 table inet fw4 {
 	#
 	# Defines

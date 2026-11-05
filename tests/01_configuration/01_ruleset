@@ -16,9 +16,7 @@ Testing the ruleset rendered from the default firewall configuration.
 -- End --
 
 -- Expect stdout --
-table inet fw4
-flush table inet fw4
-
+destroy table inet fw4
 table inet fw4 {
 	#
 	# Flowtable
@@ -324,7 +322,6 @@ table inet fw4 {
 			flags offload;
 		}
 	' 2>/dev/null> timeout <null>
-[call] fs.popen cmdline </usr/sbin/nft --terse --json list flowtables inet> mode <r>
 [call] fs.readfile path </sys/class/net/br-lan/flags> limit <null>
 [call] fs.readfile path </sys/class/net/br-lan/flags> limit <null>
 -- End --
