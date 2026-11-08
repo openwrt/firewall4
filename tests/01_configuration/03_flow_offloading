@@ -53,7 +53,7 @@ table inet fw4 {
 
 	flowtable ft {
 		hook ingress priority 0;
-		devices = { "eth0", "eth1" };
+		devices = { "eth0", "eth1", "pppoe-wan" };
 		counter;
 	}
 
@@ -225,5 +225,7 @@ table inet fw4 {
 [call] fs.opendir path </sys/class/net/br-lan>
 [call] fs.opendir path </sys/class/net/eth0>
 [call] fs.opendir path </sys/class/net/eth1>
+[call] fs.opendir path </sys/class/net/pppoe-wan>
+[call] fs.readfile path </sys/class/net/pppoe-wan/uevent> limit <null>
 [call] fs.popen cmdline </usr/sbin/nft --terse --json list flowtables inet> mode <r>
 -- End --

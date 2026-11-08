@@ -63,5 +63,5 @@ IFINDEX=23
 -- End --
 
 -- Expect stdout --
-[ "eth0", "eth1", "vethc1a2" ]
+[ "eth0", "eth1", "pppoe-wan", "vethc1a2" ]
 -- End --

@@ -587,6 +587,12 @@ return {
 		if (this.default_option("flow_offloading_hw"))
 			return devices;
 
+		// the layer 3 device of a zone network, such as a WireGuard
+		// interface, which has no device below it
+		for (let zone in this.zones())
+			for (let device in zone.related_l3devs)
+				push(devices, ...resolve_lower_devices(devstatus, device, use_prefix));
+
 		// devices a zone names directly, such as a bridge of a container
 		// runtime; a wildcard becomes a name prefix, which needs Linux 6.17
 		for (let zone in this.zones())
@@ -2237,6 +2243,7 @@ return {
 
 		let match_devices = [];
 		let related_physdevs = [];
+		let related_l3devs = [];
 		let related_subnets = [];
 		let related_ubus_networks = [];
 		let match_subnets, masq_src_subnets, masq_dest_subnets;
@@ -2261,6 +2268,9 @@ return {
 
 				if (net.physdev && !e.invert)
 					push(related_physdevs, net.physdev);
+
+				if (net.device && net.device != net.physdev && !e.invert)
+					push(related_l3devs, net.device);
 
 				push(related_subnets, ...(net.ipaddrs || []));
 			}
@@ -2395,6 +2405,7 @@ return {
 
 		zone.related_subnets = related_subnets;
 		zone.related_physdevs = related_physdevs;
+		zone.related_l3devs = related_l3devs;
 
 		if (zone.masq || zone.masq6)
 			zone.dflags.snat = true;

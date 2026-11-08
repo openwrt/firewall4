@@ -81,7 +81,7 @@ table inet fw4 {
 
 	flowtable ft {
 		hook ingress priority 0;
-		devices = { "eth0", "eth1", "tap*", "vethc1a2" };
+		devices = { "eth0", "eth1", "pppoe-wan", "tap*", "vethc1a2" };
 		counter;
 	}
 
@@ -286,6 +286,9 @@ table inet fw4 {
 [call] fs.readfile path </sys/class/net/eth0/uevent> limit <null>
 [call] fs.opendir path </sys/class/net/eth1>
 [call] fs.readfile path </sys/class/net/eth1/uevent> limit <null>
+[call] fs.opendir path </sys/class/net/pppoe-wan>
+[call] fs.readfile path </sys/class/net/pppoe-wan/uevent> limit <null>
+[call] fs.readfile path </sys/class/net/pppoe-wan/uevent> limit <null>
 [call] fs.opendir path </sys/class/net/docker0>
 [call] fs.readfile path </sys/class/net/docker0/uevent> limit <null>
 [call] fs.opendir path </sys/class/net/vethc1a2>
