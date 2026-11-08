@@ -1,6 +1,5 @@
-Testing that software flow offloading lists the zone devices without the
-WDS name prefix. Only the hardware offload flowtable lists the bridge
-members and their prefixes.
+Testing that software flow offloading lists the bridge members and the
+WDS name prefix of each wireless member, as hardware offloading does.
 
 -- Testcase --
 {%
@@ -67,5 +66,5 @@ INTERFACE=eth1
 -- End --
 
 -- Expect stdout --
-[ "br-lan", "eth1" ]
+[ "eth0", "eth1", "wlan1", "wlan1.sta*" ]
 -- End --

@@ -453,9 +453,9 @@ function device_is_wireless(devname) {
    name prefix binds the port when it registers, so it does not wait for
    the next reload. Every wireless member gets the prefix, because a reload
    at boot runs before the first station associates. Name prefixes in a
-   flowtable need Linux 6.17; an older kernel fails the check of hardware
-   offload, so it keeps the port names. */
-function resolve_hw_offload_port(devname, use_prefix) {
+   flowtable need Linux 6.17; an older kernel refuses them, so it keeps
+   the port names. */
+function resolve_offload_port(devname, use_prefix) {
 	if (!use_prefix)
 		return [ devname ];
 
@@ -490,7 +490,7 @@ function resolve_lower_devices(devstatus, devname, use_prefix) {
 			break;
 
 		default:
-			push(devs, ...resolve_hw_offload_port(devname, use_prefix));
+			push(devs, ...resolve_offload_port(devname, use_prefix));
 
 			break;
 		}
@@ -555,12 +555,12 @@ return {
 		return v;
 	},
 
-	resolve_hw_offload_devices: function() {
-		if (!this.default_option("flow_offloading_hw"))
-			return null;
+	resolve_offload_devices: function() {
+		if (!this.default_option("flow_offloading"))
+			return [];
 
 		let devstatus = null;
-		let devices = null;
+		let devices = [];
 		let use_prefix = (this.kernel >= 0x06110000);
 		let bus = ubus.connect();
 
@@ -571,38 +571,14 @@ return {
 
 		for (let zone in this.zones())
 			for (let device in zone.related_physdevs)
-				push(devices ||= [], ...resolve_lower_devices(devstatus, device, use_prefix));
-
-		if (!devices)
-			return null;
+				push(devices, ...resolve_lower_devices(devstatus, device, use_prefix));
 
 		devices = sort(uniq(devices));
 
-		if (!nft_try_hw_offload(devices)) {
+		if (this.default_option("flow_offloading_hw") && length(devices) &&
+		    !nft_try_hw_offload(devices)) {
 			this.warn('Hardware flow offloading unavailable, falling back to software offloading');
 			this.state.defaults.flow_offloading_hw = false;
-
-			return null;
-		}
-
-		return devices;
-	},
-
-	resolve_offload_devices: function() {
-		if (!this.default_option("flow_offloading"))
-			return [];
-
-		let devices = this.resolve_hw_offload_devices();
-
-		if (!devices) {
-			devices = [];
-
-			for (let zone in this.zones())
-				for (let device in zone.related_physdevs)
-					if (fs.access(`/sys/class/net/${device}`))
-						push(devices, device);
-
-			devices = sort(uniq(devices));
 		}
 
 		return devices;
