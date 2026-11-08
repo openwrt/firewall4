@@ -572,26 +572,15 @@ return {
 			bus.disconnect();
 		}
 
+		// the zone devices with the devices below them, and the layer 3
+		// device of each zone network, such as a WireGuard interface
+		let related = [];
+
 		for (let zone in this.zones())
-			for (let device in zone.related_physdevs)
-				push(devices, ...resolve_lower_devices(devstatus, device, use_prefix));
+			push(related, ...zone.related_physdevs, ...zone.related_l3devs);
 
-		devices = sort(uniq(devices));
-
-		if (this.default_option("flow_offloading_hw") && length(devices) &&
-		    !nft_try_hw_offload(devices)) {
-			this.warn('Hardware flow offloading unavailable, falling back to software offloading');
-			this.state.defaults.flow_offloading_hw = false;
-		}
-
-		if (this.default_option("flow_offloading_hw"))
-			return devices;
-
-		// the layer 3 device of a zone network, such as a WireGuard
-		// interface, which has no device below it
-		for (let zone in this.zones())
-			for (let device in zone.related_l3devs)
-				push(devices, ...resolve_lower_devices(devstatus, device, use_prefix));
+		for (let device in uniq(related))
+			push(devices, ...resolve_lower_devices(devstatus, device, use_prefix));
 
 		// devices a zone names directly, such as a bridge of a container
 		// runtime; a wildcard becomes a name prefix, which needs Linux 6.17
@@ -602,7 +591,17 @@ return {
 						? resolve_lower_devices(devstatus, device.device, use_prefix)
 						: use_prefix ? [ device.device ] : []));
 
-		return sort(uniq(devices));
+		devices = sort(uniq(devices));
+
+		// the same devices serve a hardware flowtable: the software path
+		// takes the flows the hardware does not
+		if (this.default_option("flow_offloading_hw") &&
+		    length(devices) && !nft_try_hw_offload(devices)) {
+			this.warn('Hardware flow offloading unavailable, falling back to software offloading');
+			this.state.defaults.flow_offloading_hw = false;
+		}
+
+		return devices;
 	},
 
 	check_set_types: function() {
