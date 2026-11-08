@@ -645,7 +645,7 @@ table inet fw4 {
 
 	flowtable ft {
 		hook ingress priority 0;
-		devices = { "bond0", "dk3", "eth0", "eth1", "gre1", "ipip1", "mv6", "pppoe-tw4", "pppoe-tw5", "ra", "sit1", "t6", "twg", "vt1", "vt2", "vx", "vxl0", "w1", "w2", "w3", "w4", "w5" };
+		devices = { "bond0", "br-bd", "br-lan", "br-vl", "br-vl.10", "br-vx", "dk3", "docker0", "eth0", "eth1", "gre1", "ipip1", "mv6", "pppoe-tw4", "pppoe-tw5", "ra", "sit1", "t6", "twg", "vt1", "vt2", "vx", "vxl0", "w1", "w2", "w2.7", "w3", "w3.100", "w3.100.7", "w4", "w5", "w5.7" };
 		counter;
 	}
 

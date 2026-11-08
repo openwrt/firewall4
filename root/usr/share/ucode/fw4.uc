@@ -486,6 +486,8 @@ function resolve_lower_devices(devstatus, devname, use_prefix) {
 		case 'bridge':
 			let e;
 
+			push(devs, devname);
+
 			while ((e = dir.read()) != null)
 				if (index(e, "lower_") === 0)
 					push(devs, ...resolve_lower_devices(devstatus, substr(e, 6), use_prefix));
@@ -573,7 +575,9 @@ return {
 		}
 
 		// the zone devices with the devices below them, and the layer 3
-		// device of each zone network, such as a WireGuard interface
+		// device of each zone network, such as a WireGuard interface; a
+		// flow ends at the first device of its path that runs tc, such as
+		// an SQM shaper on a VLAN, so the stacked devices are listed too
 		let related = [];
 
 		for (let zone in this.zones())
