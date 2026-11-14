@@ -66,5 +66,5 @@ INTERFACE=eth1
 -- End --
 
 -- Expect stdout --
-[ "eth0", "eth1", "pppoe-wan", "wlan1", "wlan1.sta*" ]
+[ "br-lan", "eth0", "eth1", "pppoe-wan", "wlan1", "wlan1.sta*" ]
 -- End --

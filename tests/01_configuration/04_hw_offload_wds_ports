@@ -92,5 +92,5 @@ IFINDEX=7
 -- End --
 
 -- Expect stdout --
-[ "eth0", "eth1", "pppoe-wan", "wlan0", "wlan0-long-ap", "wlan0.sta*" ]
+[ "br-lan", "eth0", "eth1", "pppoe-wan", "wlan0", "wlan0-long-ap", "wlan0.sta*" ]
 -- End --
