@@ -1,6 +1,16 @@
 let mocklib = global.mocklib,
     fs = mocklib.require("fs");
 
+/* What a test wrote to a file is what it reads from it later on */
+let written = {};
+
+let read_file = (fpath) => {
+	if (exists(written, fpath))
+		return written[fpath];
+
+	return mocklib.read_data_file(sprintf("fs/open~%s.txt", replace(fpath, /[^A-Za-z0-9_-]+/g, '_')));
+};
+
 return {
 	readlink: function(path) {
 		mocklib.trace_call("fs", "readlink", { path });
@@ -87,7 +97,10 @@ return {
 	open: (fpath, mode) => {
 		let read = (!mode || index(mode, "r") != -1 || index(mode, "+") != -1),
 		    path = sprintf("fs/open~%s.txt", replace(fpath, /[^A-Za-z0-9_-]+/g, '_')),
-		    mock = read ? mocklib.read_data_file(path) : null;
+		    mock = read ? read_file(fpath) : null;
+
+		if (!read)
+			written[fpath] = "";
 
 		if (read && !mock) {
 			mocklib.I("No stdout fixture defined for fs.open() path %s.", fpath);
@@ -126,7 +139,10 @@ return {
 				return rv;
 			},
 
-			write: function() {},
+			write: function(data) {
+				if (exists(written, fpath))
+					written[fpath] += data;
+			},
 			close: function() {},
 
 			error: function() {
@@ -137,9 +153,9 @@ return {
 
 	readfile: (fpath, limit) => {
 		let path = sprintf("fs/open~%s.txt", replace(fpath, /[^A-Za-z0-9_-]+/g, '_')),
-		    mock = mocklib.read_data_file(path);
+		    mock = read_file(fpath);
 
-		if (!mock) {
+		if (mock == null) {
 			mocklib.I("No stdout fixture defined for fs.readfile() path %s.", fpath);
 			mocklib.I("Provide a mock output through the following text file:\n%s\n", path);
 

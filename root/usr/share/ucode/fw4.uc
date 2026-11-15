@@ -3,6 +3,8 @@ const uci = require("uci");
 const ubus = require("ubus");
 
 const STATEFILE = "/var/run/fw4.state";
+const RULESETFILE = "/var/run/fw4.ruleset";
+const SETSFILE = "/var/run/fw4.sets";
 
 const PARSE_LIST   = 0x01;
 const FLATTEN_LIST = 0x02;
@@ -441,6 +443,7 @@ function map_setmatch(set, match, proto) {
 const IFNAMSIZ = 16;
 const wds_port_re = /^(.+)\.sta[0-9]+$/;
 const wireless_uevent_re = /^DEVTYPE=wlan$/;
+const flowtable_devices_re = /\n\t\tdevices = \{ ([^\n]*) \};\n/;
 
 function device_is_wireless(devname) {
 	let uevent = fs.readfile(`/sys/class/net/${devname}/uevent`);
@@ -694,6 +697,102 @@ return {
 				return true;
 
 		return false;
+	},
+
+	// Whether a reload does anything that the rendered ruleset does not
+	// show: let nft include a file or run a script. A file below
+	// /etc/nftables.d that holds nothing but comments, like the one that
+	// comes with this package, includes nothing.
+	has_includes: function() {
+		if (length(this.state.includes))
+			return true;
+
+		for (let path in fs.glob("/etc/nftables.d/*.nft"))
+			for (let line in split(fs.readfile(path) ?? "?", "\n"))
+				if (!match(line, /^[ \t]*(#|$)/))
+					return true;
+
+		return false;
+	},
+
+	// Describe what a reload hands to nft. Returns null if the rendered
+	// ruleset does not tell that. The devices of the flowtable are left
+	// out, flowtable_update() compares them with the ones it has.
+	describe_ruleset: function(ruleset) {
+		if (this.has_includes())
+			return null;
+
+		// this line depends on the flowtable being loaded, not on what
+		// gets loaded
+		let desc = replace(ruleset,
+			"flush table inet fw4\ndelete flowtable inet fw4 ft\n",
+			"flush table inet fw4\n");
+
+		return replace(desc, flowtable_devices_re, "\n");
+	},
+
+	// The devices to drop from and to add to the loaded flowtable so that
+	// it holds the ones in the rendered ruleset. It takes both in place,
+	// which keeps the flows it holds.
+	flowtable_update: function(ruleset) {
+		let names = (list) => list ? map(split(list, ", "), d => trim(d, '"')) : [];
+		let devices = names(match(ruleset, flowtable_devices_re)?.[1]);
+
+		if (!length(devices))
+			return { removed: [], added: [] };
+
+		let nft = fs.popen("/usr/sbin/nft list flowtable inet fw4 ft 2>/dev/null", "r");
+		let loaded = [];
+
+		if (nft) {
+			loaded = names(match(nft.read("all"), /devices = \{ ([^}]*) \}/)?.[1]);
+			nft.close();
+		}
+
+		return {
+			removed: filter(loaded, d => !(d in devices)),
+			added: filter(devices, d => !(d in loaded))
+		};
+	},
+
+	// The names of the sets that the ruleset fills. Sets without entries
+	// are filled while the ruleset is loaded, by rules or other programs.
+	static_sets: function() {
+		let names = "";
+
+		for (let set in this.ipsets())
+			if (length(set.entries) || set.loadfile)
+				names += `${set.name}\n`;
+
+		return names;
+	},
+
+	// Keep the description of the ruleset that gets loaded, and the names
+	// of the sets whose elements sbin/fw4 is to list with the table
+	save_ruleset: function(ruleset) {
+		let files = {
+			[RULESETFILE]: this.describe_ruleset(ruleset) ?? "",
+			[SETSFILE]: this.static_sets()
+		};
+
+		for (let path, content in files) {
+			let fd = fs.open(path, "w");
+
+			if (fd) {
+				fd.write(content);
+				fd.close();
+			}
+			else {
+				warn(`Unable to write '${path}': ${fs.error()}\n`);
+			}
+		}
+	},
+
+	is_loaded_ruleset: function(ruleset) {
+		let desc = this.describe_ruleset(ruleset);
+
+		return (desc != null && desc == fs.readfile(RULESETFILE) &&
+		        this.static_sets() == (fs.readfile(SETSFILE) ?? ""));
 	},
 
 	read_state: function() {

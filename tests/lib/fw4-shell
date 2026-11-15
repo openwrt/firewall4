@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+#
+# fw4-shell <scenario>: run a scenario against the shell scripts of the
+# package. utpl, nft and the other tools they call are stubs which append
+# each call to a log, and /var/run is a temporary directory.
+#
+#   table [text]   what nft lists as table inet fw4, nothing: no table
+#   sets <name>... the sets which utpl names as filled by the ruleset
+#   elements <set> [text]
+#                  what nft lists as that set, nothing: no such set
+#   answer <action> <code> [output]
+#                  exit code and output of utpl for the given ACTION
+#   nft_fails      let nft refuse the next ruleset or transaction
+#   calls          print the log and clear it
+
+export T=$(mktemp -d)
+trap 'rm -rf "$T"' EXIT
+mkdir "$T/bin" "$T/run"
+
+stub() {
+	printf '#!/usr/bin/env bash\n%s\n' "$2" >"$T/bin/$1"
+	chmod +x "$T/bin/$1"
+}
+
+stub flock 'exit 0'
+stub utpl '
+echo "utpl ACTION=$ACTION" >>"$T/calls"
+if [ "$ACTION" = start ]; then
+	touch "$T/run/fw4.state"
+	cat "$T/sets" >"$T/run/fw4.sets"
+fi
+cat "$T/out.$ACTION" 2>/dev/null
+exit $(cat "$T/rc.$ACTION" 2>/dev/null || echo 0)'
+stub nft '
+case "$*" in
+*"list table inet fw4"*)
+	[ -f "$T/table" ] || exit 1
+	cat "$T/table" ;;
+*"list set inet fw4"*)
+	for set; do :; done
+	echo "nft lists set $set" >>"$T/calls"
+	[ -f "$T/set.$set" ] || exit 1
+	cat "$T/set.$set" ;;
+*-f*)
+	echo "nft loads <$(cat)>" >>"$T/calls"
+	if [ -f "$T/nft_fails" ]; then
+		rm "$T/nft_fails"
+		exit 1
+	fi ;;
+*)
+	echo "nft $*" >>"$T/calls" ;;
+esac'
+
+sed -e "1s|.*|#!/usr/bin/env bash|" -e "s|/var/run|$T/run|g" root/sbin/fw4 >"$T/bin/fw4"
+chmod +x "$T/bin/fw4"
+
+PATH="$T/bin:$PATH"
+: >"$T/sets"
+
+table() {
+	rm -f "$T/table"
+	[ $# = 0 ] || echo "$1" >"$T/table"
+}
+
+sets() {
+	printf '%s\n' "$@" >"$T/sets"
+}
+
+elements() {
+	rm -f "$T/set.$1"
+	[ $# = 1 ] || echo "$2" >"$T/set.$1"
+}
+
+answer() {
+	echo "$2" >"$T/rc.$1"
+	printf '%s' "${3:+$3
+}" >"$T/out.$1"
+}
+
+nft_fails() {
+	touch "$T/nft_fails"
+}
+
+calls() {
+	cat "$T/calls" 2>/dev/null
+	: >"$T/calls"
+}
+
+. "$1" 2>&1

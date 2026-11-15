@@ -205,6 +205,16 @@ global.mocklib = {
 		return res;
 	},
 
+	/* Run a command for real and return what it prints */
+	run: function(cmdline) {
+		let proc = _fs.popen(cmdline, "r"),
+		    out = proc.read("all");
+
+		proc.close();
+
+		return out;
+	},
+
 	I: (...args) => _log('info', ...args),
 	N: (...args) => _log('notice', ...args),
 	W: (...args) => _log('warn', ...args),
