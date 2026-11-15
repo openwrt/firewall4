@@ -11,6 +11,8 @@
 #   answer <action> <code> [output]
 #                  exit code and output of utpl for the given ACTION
 #   nft_fails      let nft refuse the next ruleset or transaction
+#   hotplug <var=value>...
+#                  run the interface hotplug script
 #   calls          print the log and clear it
 
 export T=$(mktemp -d)
@@ -23,6 +25,10 @@ stub() {
 }
 
 stub flock 'exit 0'
+stub ubus 'exit 0'
+stub jsonfilter 'exit 0'
+stub firewall-init 'exit 0'
+stub logger 'echo "logger $*" >>"$T/calls"'
 stub utpl '
 echo "utpl ACTION=$ACTION" >>"$T/calls"
 if [ "$ACTION" = start ]; then
@@ -53,6 +59,7 @@ esac'
 
 sed -e "1s|.*|#!/usr/bin/env bash|" -e "s|/var/run|$T/run|g" root/sbin/fw4 >"$T/bin/fw4"
 chmod +x "$T/bin/fw4"
+sed -e "s|/etc/init.d/firewall|firewall-init|g" root/etc/hotplug.d/iface/20-firewall >"$T/20-firewall"
 
 PATH="$T/bin:$PATH"
 : >"$T/sets"
@@ -79,6 +86,10 @@ answer() {
 
 nft_fails() {
 	touch "$T/nft_fails"
+}
+
+hotplug() {
+	( export "$@"; . "$T/20-firewall" )
 }
 
 calls() {
