@@ -13,6 +13,7 @@
 #   nft_fails      let nft refuse the next ruleset or transaction
 #   hotplug <var=value>...
 #                  run the interface hotplug script
+#   trigger        run the commands of the raw procd triggers
 #   calls          print the log and clear it
 
 export T=$(mktemp -d)
@@ -90,6 +91,16 @@ nft_fails() {
 
 hotplug() {
 	( export "$@"; . "$T/20-firewall" )
+}
+
+trigger() {
+	(
+		procd_add_reload_trigger() { :; }
+		procd_add_reload_data_trigger() { :; }
+		procd_add_raw_trigger() { shift 2; "$@"; }
+		. root/etc/init.d/firewall
+		service_triggers
+	)
 }
 
 calls() {

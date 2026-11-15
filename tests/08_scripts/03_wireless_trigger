@@ -1,0 +1,50 @@
+Testing the command that the init script registers for the end of a
+wireless configuration round: it refreshes, and never reloads, so a
+ruleset the refresh cannot vouch for stays as it is until the next reload.
+
+-- Testcase --
+{%
+	print(mocklib.run(`tests/lib/fw4-shell ${MOCK_SEARCH_PATH[0]}/scenario.sh`));
+%}
+-- End --
+
+-- File scenario.sh --
+round() {
+	echo "$1:"
+	trigger
+	calls
+}
+
+round "no ruleset loaded"
+
+table "table inet fw4 { loaded }"
+fw4 -q start
+calls >/dev/null
+
+round "nothing new"
+
+answer refresh 0 'add flowtable inet fw4 ft { devices = { "phy0-ap1" }; counter; }'
+round "new wireless interface"
+answer refresh 0
+
+round "nothing new"
+
+answer refresh 1
+round "another ruleset to load"
+-- End --
+
+-- Expect stdout --
+no ruleset loaded:
+nothing new:
+utpl ACTION=refresh
+nft loads <>
+new wireless interface:
+utpl ACTION=refresh
+nft loads <add flowtable inet fw4 ft { devices = { "phy0-ap1" }; counter; }>
+nothing new:
+utpl ACTION=refresh
+nft loads <>
+another ruleset to load:
+utpl ACTION=refresh
+nft loads <>
+-- End --
