@@ -504,6 +504,17 @@ function resolve_lower_devices(devstatus, devname, use_prefix) {
 	return devs;
 }
 
+/* The kernel compares the hook names of a flowtable over the length of the
+   shorter one, so it refuses the whole list when a name or a prefix starts
+   with another listed prefix. Keep the prefix that covers it. */
+function drop_covered_devices(devices) {
+	let prefixes = map(filter(devices, d => substr(d, -1) == "*"),
+		d => substr(d, 0, -1));
+
+	return filter(devices, d =>
+		!length(filter(prefixes, p => d != `${p}*` && index(d, p) === 0)));
+}
+
 function nft_json_command(...args) {
 	let cmd = [ "/usr/sbin/nft", "--terse", "--json", ...args ];
 	let nft = fs.popen(join(" ", cmd), "r");
@@ -591,7 +602,7 @@ return {
 						? resolve_lower_devices(devstatus, device.device, use_prefix)
 						: use_prefix ? [ device.device ] : []));
 
-		devices = sort(uniq(devices));
+		devices = drop_covered_devices(sort(uniq(devices)));
 
 		// the same devices serve a hardware flowtable: the software path
 		// takes the flows the hardware does not
