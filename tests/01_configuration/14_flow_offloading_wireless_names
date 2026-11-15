@@ -1,0 +1,122 @@
+Testing that the wireless interfaces and wifi-vlans of the zone networks are
+listed in the flowtable by the name netifd reports, whether the device exists
+or not, so that the kernel binds the hook of a BSS that hostapd creates after
+the ruleset was written. An interface of a network outside the zones, one
+without a name yet, a name of IFNAMSIZ characters or more and status entries
+that are not objects are skipped. An AP also gets its WDS port prefix.
+
+-- Testcase --
+{%
+	fw4.load(false);
+	print(fw4.resolve_offload_devices(), "\n");
+%}
+-- End --
+
+-- File fs/open~_proc_version.txt --
+Linux version 6.18.55 (builder@host) (aarch64-openwrt-linux-musl-gcc) #0 SMP
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{
+	"defaults": [
+		{
+			"flow_offloading": 1
+		}
+	],
+	"zone": [
+		{
+			"name": "lan",
+			"network": "lan",
+			"auto_helper": 0
+		},
+		{
+			"name": "wan",
+			"network": [ "wan", "wwan" ],
+			"auto_helper": 0
+		}
+	]
+}
+-- End --
+
+-- File fs/opendir~_sys_class_net_br-lan.json --
+[
+	"lower_eth0",
+	"lower_phy0-ap0"
+]
+-- End --
+
+-- File fs/opendir~_sys_class_net_phy0-ap0.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_phy0-ap0_uevent.txt --
+DEVTYPE=wlan
+INTERFACE=phy0-ap0
+IFINDEX=9
+-- End --
+
+-- File ubus/network.wireless~status.json --
+{
+	"radio0": {
+		"up": true,
+		"interfaces": [
+			{
+				"section": "default_radio0",
+				"config": { "mode": "ap", "network": [ "lan" ] },
+				"ifname": "phy0-ap0",
+				"vlans": [
+					{
+						"section": "vlan10",
+						"config": { "network": [ "lan" ] },
+						"ifname": "wlan-v10"
+					},
+					{
+						"section": "vlan20",
+						"config": { "network": [ "iot" ] },
+						"ifname": "wlan-v20"
+					}
+				]
+			},
+			{
+				"section": "guest_radio0",
+				"config": { "mode": "ap", "network": [ "lan" ] },
+				"ifname": "phy0-ap1",
+				"vlans": []
+			},
+			{
+				"section": "iot_radio0",
+				"config": { "mode": "ap", "network": [ "iot" ] },
+				"ifname": "phy0-ap2"
+			},
+			{
+				"section": "uplink_radio0",
+				"config": { "mode": "sta", "network": "wwan" },
+				"ifname": "phy0-sta0"
+			},
+			{
+				"section": "long_radio0",
+				"config": { "mode": "ap", "network": [ "lan" ] },
+				"ifname": "wlan-very-long-1"
+			},
+			{
+				"section": "pending_radio0",
+				"config": { "mode": "ap", "network": [ "lan" ] }
+			},
+			"not an object"
+		]
+	},
+	"radio1": {
+		"up": false,
+		"interfaces": "not an array"
+	},
+	"radio2": null
+}
+-- End --
+
+-- Expect stdout --
+[ "eth0", "eth1", "phy0-ap0", "phy0-ap0.sta*", "phy0-ap1", "phy0-ap1.sta*", "phy0-sta0", "pppoe-wan", "wlan-v10" ]
+-- End --

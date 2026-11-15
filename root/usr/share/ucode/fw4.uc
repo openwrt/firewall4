@@ -504,6 +504,37 @@ function resolve_lower_devices(devstatus, devname, use_prefix) {
 	return devs;
 }
 
+/* netifd sets up a wireless interface after the ruleset was written when its
+   radio comes up late, and hostapd creates a BSS only once the DFS channel
+   check of its radio is done. The kernel binds the hook of a listed name
+   when the device registers, so list each wireless interface and wifi-vlan
+   of a zone network by the name netifd gave it, present or not. */
+function resolve_wireless_ports(wireless, networks) {
+	let ports = [];
+
+	for (let radio, rstatus in wireless) {
+		for (let iface in (type(rstatus?.interfaces) == "array") ? rstatus.interfaces : []) {
+			let vlans = (type(iface?.vlans) == "array") ? iface.vlans : [];
+
+			for (let ifc in [ iface, ...vlans ]) {
+				let name = ifc?.ifname;
+
+				if (type(name) != "string" || length(name) >= IFNAMSIZ ||
+				    !length(filter(to_array(ifc.config?.network), n => n in networks)))
+					continue;
+
+				push(ports, name);
+
+				if (ifc === iface && ifc.config?.mode == "ap" &&
+				    length(name) + length(".sta0") < IFNAMSIZ)
+					push(ports, `${name}.sta*`);
+			}
+		}
+	}
+
+	return ports;
+}
+
 /* The kernel compares the hook names of a flowtable over the length of the
    shorter one, so it refuses the whole list when a name or a prefix starts
    with another listed prefix. Keep the prefix that covers it. */
@@ -574,12 +605,17 @@ return {
 			return [];
 
 		let devstatus = null;
+		let wireless = null;
 		let devices = [];
 		let use_prefix = (this.kernel >= 0x06110000);
 		let bus = ubus.connect();
 
 		if (bus) {
 			devstatus = bus.call("network.device", "status") || {};
+
+			if (use_prefix)
+				wireless = bus.call("network.wireless", "status");
+
 			bus.disconnect();
 		}
 
@@ -601,6 +637,33 @@ return {
 					push(devices, ...(!device.wildcard
 						? resolve_lower_devices(devstatus, device.device, use_prefix)
 						: use_prefix ? [ device.device ] : []));
+
+		// the wireless interfaces of the zone networks by name, which a
+		// hook binds when they appear; listing an absent name needs Linux 6.16
+		if (wireless) {
+			let networks = {};
+
+			for (let zone in this.zones()) {
+				for (let e in zone.network)
+					if (!e.invert)
+						networks[e.device] = true;
+
+				// a zone can name the device of a network instead
+				for (let d in to_array(zone.device)) {
+					if (d.invert || d.device == '+')
+						continue;
+
+					let stem = d.wildcard ? substr(d.device, 0, -1) : null;
+
+					for (let name, net in this.state.networks)
+						for (let dev in [ net.physdev, net.device ])
+							if (dev != null && (stem != null ? index(dev, stem) === 0 : dev == d.device))
+								networks[name] = true;
+				}
+			}
+
+			push(devices, ...resolve_wireless_ports(wireless, networks));
+		}
 
 		devices = drop_covered_devices(sort(uniq(devices)));
 
