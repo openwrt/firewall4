@@ -1,0 +1,70 @@
+Testing that the interface hotplug script reloads the firewall only if
+"fw4 refresh" does not vouch for the loaded ruleset, and that it reloads
+whenever the refresh cannot tell.
+
+-- Testcase --
+{%
+	print(mocklib.run(`tests/lib/fw4-shell ${MOCK_SEARCH_PATH[0]}/scenario.sh`));
+%}
+-- End --
+
+-- File scenario.sh --
+event() {
+	echo "$1:"
+	shift
+	hotplug "$@"
+	calls | grep -v "ACTION=network"
+}
+
+table "table inet fw4 { loaded }"
+fw4 -q start
+calls >/dev/null
+
+event "lease renewed" ACTION=ifupdate INTERFACE=wan DEVICE=eth1 IFUPDATE_DATA=1
+
+answer refresh 1
+event "another ruleset to load" ACTION=ifupdate INTERFACE=wan DEVICE=eth1 IFUPDATE_ADDRESSES=1
+answer refresh 0
+
+event "interface back up" ACTION=ifup INTERFACE=wan DEVICE=eth1
+
+table
+event "table gone" ACTION=ifup INTERFACE=wan DEVICE=eth1
+
+table "table inet fw4 { loaded }"
+nft_fails
+fw4 -q reload
+calls >/dev/null
+event "after nft refused a ruleset" ACTION=ifupdate INTERFACE=wan DEVICE=eth1 IFUPDATE_DATA=1
+
+event "routes only" ACTION=ifupdate INTERFACE=wan DEVICE=eth1 IFUPDATE_ROUTES=1
+event "interface down" ACTION=ifdown INTERFACE=wan DEVICE=eth1
+-- End --
+
+-- Expect stdout --
+lease renewed:
+utpl ACTION=refresh
+nft loads <>
+another ruleset to load:
+utpl ACTION=refresh
+nft loads <>
+logger -t firewall Reloading firewall due to ifupdate of wan (eth1)
+utpl ACTION=start
+nft loads <>
+utpl ACTION=includes
+interface back up:
+utpl ACTION=refresh
+nft loads <>
+table gone:
+logger -t firewall Reloading firewall due to ifup of wan (eth1)
+utpl ACTION=start
+nft loads <>
+utpl ACTION=includes
+after nft refused a ruleset:
+logger -t firewall Reloading firewall due to ifupdate of wan (eth1)
+utpl ACTION=start
+nft loads <>
+utpl ACTION=includes
+routes only:
+interface down:
+-- End --

@@ -1,0 +1,177 @@
+Testing when "fw4 refresh" lets the ruleset get rendered and compared at
+all: only if a ruleset is loaded, if nft accepted it, and if nft lists
+the fw4 table and the sets which the ruleset fills the way it did after
+that load. The devices of the flowtable and the elements of other sets
+are not part of that. It asks for a reload if nft refuses the update of
+the flowtable devices.
+
+-- Testcase --
+{%
+	print(mocklib.run(`tests/lib/fw4-shell ${MOCK_SEARCH_PATH[0]}/scenario.sh`));
+%}
+-- End --
+
+-- File scenario.sh --
+check() {
+	fw4 -q refresh
+	echo "$1: refresh exits with $?"
+	calls
+}
+
+loaded() {
+	table "table inet fw4 {
+	flowtable ft {
+		devices = { $1 }
+		counter
+	}
+}"
+}
+
+check "no ruleset loaded"
+
+loaded '"eth0"'
+fw4 -q start
+calls
+check "ruleset loaded"
+
+answer refresh 1
+check "a reload would load another ruleset"
+answer refresh 0
+
+table "table inet fw4 { }"
+check "table changed"
+
+table
+check "table gone"
+
+loaded '"eth0"'
+check "table as loaded again"
+
+answer refresh 0 'add flowtable inet fw4 ft { devices = { "wlan0" }; counter; }'
+check "flowtable devices to update"
+loaded '"eth0", "wlan0"'
+answer refresh 0
+check "flowtable devices updated"
+
+answer refresh 0 'add flowtable inet fw4 ft { devices = { "wlan1" }; counter; }'
+nft_fails
+check "nft refused the update"
+answer refresh 0
+
+sets blocked
+elements blocked "elements = { 192.0.2.1, 192.0.2.2 }"
+elements seen "elements = { 198.51.100.1 }"
+fw4 -q reload
+calls
+check "ruleset with a set that it fills"
+
+elements blocked "elements = { 192.0.2.1 }"
+check "element deleted from that set"
+
+elements blocked "elements = { 192.0.2.1, 192.0.2.2 }"
+check "element back in that set"
+
+elements seen "elements = { 198.51.100.1, 198.51.100.2 }"
+check "element added to a set that the ruleset does not fill"
+
+elements blocked
+check "set gone"
+
+sets
+nft_fails
+fw4 -q reload
+calls
+check "nft refused the ruleset"
+
+fw4 -q reload
+calls
+check "ruleset reloaded"
+
+table "table inet fw4 {
+	set seen {
+		size 65535
+	}
+}"
+fw4 -q reload
+calls
+check "ruleset with a set of a size"
+
+table "table inet fw4 {
+	set seen {
+		size 65535	# count 2
+	}
+}"
+check "elements added to that set"
+
+fw4 -q stop
+calls
+check "ruleset unloaded"
+-- End --
+
+-- Expect stdout --
+no ruleset loaded: refresh exits with 1
+utpl ACTION=start
+nft loads <>
+utpl ACTION=includes
+ruleset loaded: refresh exits with 0
+utpl ACTION=refresh
+nft loads <>
+a reload would load another ruleset: refresh exits with 1
+utpl ACTION=refresh
+nft loads <>
+table changed: refresh exits with 1
+table gone: refresh exits with 1
+table as loaded again: refresh exits with 0
+utpl ACTION=refresh
+nft loads <>
+flowtable devices to update: refresh exits with 0
+utpl ACTION=refresh
+nft loads <add flowtable inet fw4 ft { devices = { "wlan0" }; counter; }>
+flowtable devices updated: refresh exits with 0
+utpl ACTION=refresh
+nft loads <>
+nft refused the update: refresh exits with 1
+utpl ACTION=refresh
+nft loads <add flowtable inet fw4 ft { devices = { "wlan1" }; counter; }>
+utpl ACTION=start
+nft loads <>
+nft lists set blocked
+utpl ACTION=includes
+ruleset with a set that it fills: refresh exits with 0
+nft lists set blocked
+utpl ACTION=refresh
+nft loads <>
+element deleted from that set: refresh exits with 1
+nft lists set blocked
+element back in that set: refresh exits with 0
+nft lists set blocked
+utpl ACTION=refresh
+nft loads <>
+element added to a set that the ruleset does not fill: refresh exits with 0
+nft lists set blocked
+utpl ACTION=refresh
+nft loads <>
+set gone: refresh exits with 1
+nft lists set blocked
+utpl ACTION=start
+nft loads <>
+utpl ACTION=includes
+nft refused the ruleset: refresh exits with 1
+utpl ACTION=start
+nft loads <>
+utpl ACTION=includes
+ruleset reloaded: refresh exits with 0
+utpl ACTION=refresh
+nft loads <>
+utpl ACTION=start
+nft loads <>
+utpl ACTION=includes
+ruleset with a set of a size: refresh exits with 0
+utpl ACTION=refresh
+nft loads <>
+elements added to that set: refresh exits with 0
+utpl ACTION=refresh
+nft loads <>
+nft delete table inet fw4
+ruleset unloaded: refresh exits with 1
+-- End --

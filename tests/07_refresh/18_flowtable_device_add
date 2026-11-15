@@ -1,0 +1,135 @@
+Testing that a refresh adds a device to the flowtable in place when it
+joined the bridge of a zone after the ruleset was loaded, and that the
+update repeats the flags of the flowtable.
+
+-- Testcase --
+{%
+	let main = "./root/usr/share/firewall4/main.uc";
+
+	// load the ruleset, then let the fixtures below after/ take effect
+	render(() => include(main, {
+		getenv: (name) => (name == 'ACTION') ? 'start' : null
+	}));
+
+	unshift(MOCK_SEARCH_PATH, `${MOCK_SEARCH_PATH[0]}/after`);
+
+	include(main, {
+		getenv: (name) => (name == 'ACTION') ? 'refresh' : null,
+		exit: (code) => print(`exit ${code}\n`)
+	});
+%}
+-- End --
+
+-- File fs/open~_var_run_fw4_state.txt --
+null
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{
+	"defaults": [
+		{
+			"flow_offloading": "1",
+			"flow_offloading_hw": "1"
+		}
+	],
+	"zone": [
+		{
+			"name": "lan",
+			"network": "lan",
+			"auto_helper": 0
+		},
+		{
+			"name": "wan",
+			"network": "wan",
+			"masq": "1",
+			"auto_helper": 0
+		}
+	]
+}
+-- End --
+
+-- File ubus/network.interface~dump.json --
+{
+	"interface": [
+		{
+			"interface": "lan",
+			"up": true,
+			"l3_device": "br-lan",
+			"proto": "static",
+			"device": "br-lan",
+			"ipv4-address": [
+				{
+					"address": "192.168.1.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [],
+			"ipv6-prefix-assignment": [],
+			"data": {}
+		},
+		{
+			"interface": "wan",
+			"up": true,
+			"l3_device": "eth1",
+			"proto": "dhcp",
+			"device": "eth1",
+			"ipv4-address": [
+				{
+					"address": "198.51.100.7",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [],
+			"ipv6-prefix-assignment": [],
+			"data": {
+				"leasetime": 3600
+			}
+		}
+	]
+}
+-- End --
+
+-- File fs/open~_proc_version.txt --
+Linux version 6.18.55 (builder@host) (aarch64-openwrt-linux-musl-gcc) #0 SMP
+-- End --
+
+-- File fs/popen~_usr_sbin_nft_list_flowtable_inet_fw4_ft_2_dev_null.txt --
+table inet fw4 {
+	flowtable ft {
+		hook ingress priority filter
+		devices = { "eth0", "eth1" }
+		flags offload
+		counter
+	}
+}
+-- End --
+
+-- File after/fs/opendir~_sys_class_net_br-lan.json --
+[
+	"lower_eth0",
+	"lower_wlan0"
+]
+-- End --
+
+-- File after/fs/opendir~_sys_class_net_wlan0.json --
+[]
+-- End --
+
+-- File after/fs/open~_sys_class_net_wlan0_uevent.txt --
+DEVTYPE=wlan
+INTERFACE=wlan0
+IFINDEX=9
+-- End --
+
+-- Expect stdout --
+add flowtable inet fw4 ft {
+	devices = { "wlan0", "wlan0.sta*" };
+	counter;
+	flags offload;
+}
+exit 0
+-- End --

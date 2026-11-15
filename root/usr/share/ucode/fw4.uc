@@ -3,6 +3,8 @@ const uci = require("uci");
 const ubus = require("ubus");
 
 const STATEFILE = "/var/run/fw4.state";
+const RULESETFILE = "/var/run/fw4.ruleset";
+const SETSFILE = "/var/run/fw4.sets";
 
 const PARSE_LIST   = 0x01;
 const FLATTEN_LIST = 0x02;
@@ -441,6 +443,7 @@ function map_setmatch(set, match, proto) {
 const IFNAMSIZ = 16;
 const wds_port_re = /^(.+)\.sta[0-9]+$/;
 const wireless_uevent_re = /^DEVTYPE=wlan$/;
+const flowtable_devices_re = /\n\t\tdevices = \{ ([^\n]*) \};\n/;
 
 function device_is_wireless(devname) {
 	let uevent = fs.readfile(`/sys/class/net/${devname}/uevent`);
@@ -504,6 +507,48 @@ function resolve_lower_devices(devstatus, devname, use_prefix) {
 	return devs;
 }
 
+/* netifd sets up a wireless interface after the ruleset was written when its
+   radio comes up late, and hostapd creates a BSS only once the DFS channel
+   check of its radio is done. The kernel binds the hook of a listed name
+   when the device registers, so list each wireless interface and wifi-vlan
+   of a zone network by the name netifd gave it, present or not. */
+function resolve_wireless_ports(wireless, networks) {
+	let ports = [];
+
+	for (let radio, rstatus in wireless) {
+		for (let iface in (type(rstatus?.interfaces) == "array") ? rstatus.interfaces : []) {
+			let vlans = (type(iface?.vlans) == "array") ? iface.vlans : [];
+
+			for (let ifc in [ iface, ...vlans ]) {
+				let name = ifc?.ifname;
+
+				if (type(name) != "string" || length(name) >= IFNAMSIZ ||
+				    !length(filter(to_array(ifc.config?.network), n => n in networks)))
+					continue;
+
+				push(ports, name);
+
+				if (ifc === iface && ifc.config?.mode == "ap" &&
+				    length(name) + length(".sta0") < IFNAMSIZ)
+					push(ports, `${name}.sta*`);
+			}
+		}
+	}
+
+	return ports;
+}
+
+/* The kernel compares the hook names of a flowtable over the length of the
+   shorter one, so it refuses the whole list when a name or a prefix starts
+   with another listed prefix. Keep the prefix that covers it. */
+function drop_covered_devices(devices) {
+	let prefixes = map(filter(devices, d => substr(d, -1) == "*"),
+		d => substr(d, 0, -1));
+
+	return filter(devices, d =>
+		!length(filter(prefixes, p => d != `${p}*` && index(d, p) === 0)));
+}
+
 function nft_json_command(...args) {
 	let cmd = [ "/usr/sbin/nft", "--terse", "--json", ...args ];
 	let nft = fs.popen(join(" ", cmd), "r");
@@ -563,12 +608,17 @@ return {
 			return [];
 
 		let devstatus = null;
+		let wireless = null;
 		let devices = [];
 		let use_prefix = (this.kernel >= 0x06110000);
 		let bus = ubus.connect();
 
 		if (bus) {
 			devstatus = bus.call("network.device", "status") || {};
+
+			if (use_prefix)
+				wireless = bus.call("network.wireless", "status");
+
 			bus.disconnect();
 		}
 
@@ -591,7 +641,34 @@ return {
 						? resolve_lower_devices(devstatus, device.device, use_prefix)
 						: use_prefix ? [ device.device ] : []));
 
-		devices = sort(uniq(devices));
+		// the wireless interfaces of the zone networks by name, which a
+		// hook binds when they appear; listing an absent name needs Linux 6.16
+		if (wireless) {
+			let networks = {};
+
+			for (let zone in this.zones()) {
+				for (let e in zone.network)
+					if (!e.invert)
+						networks[e.device] = true;
+
+				// a zone can name the device of a network instead
+				for (let d in to_array(zone.device)) {
+					if (d.invert || d.device == '+')
+						continue;
+
+					let stem = d.wildcard ? substr(d.device, 0, -1) : null;
+
+					for (let name, net in this.state.networks)
+						for (let dev in [ net.physdev, net.device ])
+							if (dev != null && (stem != null ? index(dev, stem) === 0 : dev == d.device))
+								networks[name] = true;
+				}
+			}
+
+			push(devices, ...resolve_wireless_ports(wireless, networks));
+		}
+
+		devices = drop_covered_devices(sort(uniq(devices)));
 
 		// the same devices serve a hardware flowtable: the software path
 		// takes the flows the hardware does not
@@ -620,6 +697,102 @@ return {
 				return true;
 
 		return false;
+	},
+
+	// Whether a reload does anything that the rendered ruleset does not
+	// show: let nft include a file or run a script. A file below
+	// /etc/nftables.d that holds nothing but comments, like the one that
+	// comes with this package, includes nothing.
+	has_includes: function() {
+		if (length(this.state.includes))
+			return true;
+
+		for (let path in fs.glob("/etc/nftables.d/*.nft"))
+			for (let line in split(fs.readfile(path) ?? "?", "\n"))
+				if (!match(line, /^[ \t]*(#|$)/))
+					return true;
+
+		return false;
+	},
+
+	// Describe what a reload hands to nft. Returns null if the rendered
+	// ruleset does not tell that. The devices of the flowtable are left
+	// out, flowtable_update() compares them with the ones it has.
+	describe_ruleset: function(ruleset) {
+		if (this.has_includes())
+			return null;
+
+		// this line depends on the flowtable being loaded, not on what
+		// gets loaded
+		let desc = replace(ruleset,
+			"flush table inet fw4\ndelete flowtable inet fw4 ft\n",
+			"flush table inet fw4\n");
+
+		return replace(desc, flowtable_devices_re, "\n");
+	},
+
+	// The devices to drop from and to add to the loaded flowtable so that
+	// it holds the ones in the rendered ruleset. It takes both in place,
+	// which keeps the flows it holds.
+	flowtable_update: function(ruleset) {
+		let names = (list) => list ? map(split(list, ", "), d => trim(d, '"')) : [];
+		let devices = names(match(ruleset, flowtable_devices_re)?.[1]);
+
+		if (!length(devices))
+			return { removed: [], added: [] };
+
+		let nft = fs.popen("/usr/sbin/nft list flowtable inet fw4 ft 2>/dev/null", "r");
+		let loaded = [];
+
+		if (nft) {
+			loaded = names(match(nft.read("all"), /devices = \{ ([^}]*) \}/)?.[1]);
+			nft.close();
+		}
+
+		return {
+			removed: filter(loaded, d => !(d in devices)),
+			added: filter(devices, d => !(d in loaded))
+		};
+	},
+
+	// The names of the sets that the ruleset fills. Sets without entries
+	// are filled while the ruleset is loaded, by rules or other programs.
+	static_sets: function() {
+		let names = "";
+
+		for (let set in this.ipsets())
+			if (length(set.entries) || set.loadfile)
+				names += `${set.name}\n`;
+
+		return names;
+	},
+
+	// Keep the description of the ruleset that gets loaded, and the names
+	// of the sets whose elements sbin/fw4 is to list with the table
+	save_ruleset: function(ruleset) {
+		let files = {
+			[RULESETFILE]: this.describe_ruleset(ruleset) ?? "",
+			[SETSFILE]: this.static_sets()
+		};
+
+		for (let path, content in files) {
+			let fd = fs.open(path, "w");
+
+			if (fd) {
+				fd.write(content);
+				fd.close();
+			}
+			else {
+				warn(`Unable to write '${path}': ${fs.error()}\n`);
+			}
+		}
+	},
+
+	is_loaded_ruleset: function(ruleset) {
+		let desc = this.describe_ruleset(ruleset);
+
+		return (desc != null && desc == fs.readfile(RULESETFILE) &&
+		        this.static_sets() == (fs.readfile(SETSFILE) ?? ""));
 	},
 
 	read_state: function() {

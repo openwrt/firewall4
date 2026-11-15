@@ -1,0 +1,90 @@
+Testing that the wireless interfaces of a network are listed by name when a
+zone names the device of the network instead of the network, by name or by
+a wildcard, and not when no zone covers the network.
+
+-- Testcase --
+{%
+	fw4.load(false);
+	print(fw4.resolve_offload_devices(), "\n");
+%}
+-- End --
+
+-- File fs/open~_proc_version.txt --
+Linux version 6.18.55 (builder@host) (aarch64-openwrt-linux-musl-gcc) #0 SMP
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{
+	"defaults": [
+		{
+			"flow_offloading": 1
+		}
+	],
+	"zone": [
+		{
+			"name": "lan",
+			"device": "br-lan",
+			"auto_helper": 0
+		},
+		{
+			"name": "guest",
+			"device": "br-gu+",
+			"auto_helper": 0
+		}
+	]
+}
+-- End --
+
+-- File ubus/network.interface~dump.json --
+{
+	"interface": [
+		{ "interface": "lan", "up": true, "device": "br-lan" },
+		{ "interface": "guest", "up": true, "device": "br-guest" },
+		{ "interface": "iot", "up": true, "device": "br-iot" }
+	]
+}
+-- End --
+
+-- File fs/opendir~_sys_class_net_br-lan.json --
+[
+	"lower_eth0"
+]
+-- End --
+
+-- File fs/opendir~_sys_class_net_eth0.json --
+[]
+-- End --
+
+-- File fs/open~_sys_class_net_br-lan_uevent.txt --
+DEVTYPE=bridge
+INTERFACE=br-lan
+-- End --
+
+-- File ubus/network.wireless~status.json --
+{
+	"radio0": {
+		"interfaces": [
+			{
+				"config": { "mode": "ap", "network": [ "lan" ] },
+				"ifname": "phy0-ap0"
+			},
+			{
+				"config": { "mode": "ap", "network": [ "guest" ] },
+				"ifname": "phy0-ap1"
+			},
+			{
+				"config": { "mode": "ap", "network": [ "iot" ] },
+				"ifname": "phy0-ap2"
+			}
+		]
+	}
+}
+-- End --
+
+-- Expect stdout --
+[ "br-gu*", "eth0", "phy0-ap0", "phy0-ap0.sta*", "phy0-ap1", "phy0-ap1.sta*" ]
+-- End --

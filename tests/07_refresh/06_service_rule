@@ -1,0 +1,110 @@
+Testing that a refresh asks for a reload when a procd service publishes
+a firewall rule that the ruleset was not loaded with.
+
+-- Testcase --
+{%
+	let main = "./root/usr/share/firewall4/main.uc";
+
+	// load the ruleset, then let the fixtures below after/ take effect
+	render(() => include(main, {
+		getenv: (name) => (name == 'ACTION') ? 'start' : null
+	}));
+
+	unshift(MOCK_SEARCH_PATH, `${MOCK_SEARCH_PATH[0]}/after`);
+
+	include(main, {
+		getenv: (name) => (name == 'ACTION') ? 'refresh' : null,
+		exit: (code) => print(`exit ${code}\n`)
+	});
+%}
+-- End --
+
+-- File fs/open~_var_run_fw4_state.txt --
+null
+-- End --
+
+-- File uci/helpers.json --
+{}
+-- End --
+
+-- File uci/firewall.json --
+{
+	"defaults": [
+		{}
+	],
+	"zone": [
+		{
+			"name": "lan",
+			"network": "lan",
+			"auto_helper": 0
+		},
+		{
+			"name": "wan",
+			"network": "wan",
+			"masq": "1",
+			"auto_helper": 0
+		}
+	]
+}
+-- End --
+
+-- File ubus/network.interface~dump.json --
+{
+	"interface": [
+		{
+			"interface": "lan",
+			"up": true,
+			"l3_device": "br-lan",
+			"proto": "static",
+			"device": "br-lan",
+			"ipv4-address": [
+				{
+					"address": "192.168.1.1",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [],
+			"ipv6-prefix-assignment": [],
+			"data": {}
+		},
+		{
+			"interface": "wan",
+			"up": true,
+			"l3_device": "eth1",
+			"proto": "dhcp",
+			"device": "eth1",
+			"ipv4-address": [
+				{
+					"address": "198.51.100.7",
+					"mask": 24
+				}
+			],
+			"ipv6-address": [],
+			"ipv6-prefix-assignment": [],
+			"data": {
+				"leasetime": 3600
+			}
+		}
+	]
+}
+-- End --
+
+-- File after/ubus/service~get_data~type-firewall.json --
+{
+	"example": {
+		"firewall": [
+			{
+				"type": "rule",
+				"src": "wan",
+				"proto": "tcp",
+				"dest_port": "8080",
+				"target": "ACCEPT"
+			}
+		]
+	}
+}
+-- End --
+
+-- Expect stdout --
+exit 1
+-- End --

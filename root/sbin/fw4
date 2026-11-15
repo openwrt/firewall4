@@ -5,6 +5,8 @@ set -o pipefail
 MAIN=/usr/share/firewall4/main.uc
 LOCK=/var/run/fw4.lock
 STATE=/var/run/fw4.state
+LOADED=/var/run/fw4.loaded
+SETS=/var/run/fw4.sets
 VERBOSE=
 
 [ -e /dev/stdin ] && STDIN=/dev/stdin || STDIN=/proc/self/fd/0
@@ -14,6 +16,21 @@ VERBOSE=
 die() {
 	[ -n "$QUIET" ] || echo "$@" >&2
 	exit 1
+}
+
+# List the fw4 table the way a refresh compares it: without counters and
+# set elements, then the sets which the ruleset fills with their elements.
+# The devices of the flowtable are left out, a refresh updates them, and
+# so is the element count nft prints for a set with a size.
+snapshot() {
+	local set
+
+	nft -s -t list table inet fw4 | sed -e '/^[[:space:]]*devices = /d' \
+		-e 's/[[:space:]]*# count [0-9]*$//' || return 1
+
+	for set in $(cat $SETS 2>/dev/null); do
+		nft -s list set inet fw4 "$set" || return 1
+	done
 }
 
 start() {
@@ -32,8 +49,13 @@ start() {
 			;;
 		esac
 
+		# Keep what nft lists after a successful load, so that a refresh
+		# can tell whether the table is still the same
+		rm -f $LOADED
+
 		ACTION=start \
-			utpl -S $MAIN | nft $VERBOSE -f $STDIN
+			utpl -S $MAIN | nft $VERBOSE -f $STDIN &&
+			snapshot >$LOADED
 
 		ACTION=includes \
 			utpl -S $MAIN
@@ -65,6 +87,20 @@ flush() {
 		done
 
 		rm -f $STATE
+	} 1000>$LOCK
+}
+
+refresh() {
+	{
+		flock -x 1000
+
+		[ -f $STATE -a -f $LOADED ] || return 1
+
+		snapshot 2>/dev/null | cmp -s - $LOADED || return 1
+
+		# Prints the changes to the devices of the flowtable, if any
+		ACTION=refresh \
+			utpl -S $MAIN | nft $VERBOSE -f $STDIN
 	} 1000>$LOCK
 }
 
@@ -123,6 +159,9 @@ case "$1" in
 	reload-sets)
 		reload_sets
 	;;
+	refresh)
+		refresh
+	;;
 	network|device|zone)
 		lookup "$@"
 	;;
@@ -139,6 +178,19 @@ Usage:
 
     Reload the contents of all declared sets but do not touch the
     ruleset.
+
+
+  $0 [-q] refresh
+
+    Test whether a reload would load another ruleset than the one that
+    is loaded, and update the devices of the flowtable in place.
+
+    Exits with code 0 only if the fw4 table is as the last start or
+    reload left it and a reload would load the same ruleset again,
+    apart from the flowtable devices. Exits with code 1 if not, or if
+    that cannot be told, which means that the firewall needs a reload.
+    It cannot be told for a ruleset with includes, and the elements of
+    a set are only looked at if the ruleset fills that set.
 
 
   $0 [-q] print
