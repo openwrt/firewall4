@@ -117,6 +117,11 @@ table inet fw4 {
 
 		iif "lo" accept comment "!fw4: Accept traffic from loopback"
 
+{% if (fw4.default_option("spoof_protect")): %}
+		iif != "lo" ip saddr 127.0.0.0/8 drop comment "!fw4: Drop spoofed loopback IPv4"
+		iif != "lo" ip6 saddr ::1 drop comment "!fw4: Drop spoofed loopback IPv6"
+{% endif %}
+
 {% fw4.includes('chain-prepend', 'input') %}
 		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle inbound flows"
 {% if (fw4.default_option("synflood_protect") && fw4.default_option("synflood_rate")): %}
@@ -141,6 +146,10 @@ table inet fw4 {
 		meta l4proto { tcp, udp } flow offload @ft;
 {% endif %}
 {% fw4.includes('chain-prepend', 'forward') %}
+{% if (fw4.default_option("spoof_protect")): %}
+		ip saddr 127.0.0.0/8 drop comment "!fw4: Drop forwarded loopback IPv4"
+		ip6 saddr ::1 drop comment "!fw4: Drop forwarded loopback IPv6"
+{% endif %}
 		ct state vmap { established : accept, related : accept{% if (fw4.default_option("drop_invalid")): %}, invalid : drop{% endif %} } comment "!fw4: Handle forwarded flows"
 {% for (let rule in fw4.rules("forward")): %}
 		{%+ include("rule.uc", { fw4, zone: (rule.src?.zone?.log_limit ? rule.src.zone : rule.dest?.zone), rule }) %}
