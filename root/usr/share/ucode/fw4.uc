@@ -2135,6 +2135,8 @@ return {
 			synflood_rate: [ "limit", "25/second" ],
 			synflood_burst: [ "int", "50" ],
 
+			spoof_protect: [ "bool" ],
+
 			tcp_syncookies: [ "bool", null, UNSUPPORTED ],
 			tcp_ecn: [ "int", null, UNSUPPORTED ],
 			tcp_window_scaling: [ "bool", null, UNSUPPORTED ],
