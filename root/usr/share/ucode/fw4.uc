@@ -2501,8 +2501,8 @@ return {
 			_name: [ "string", null, DEPRECATED ],
 			family: [ "family" ],
 
-			src: [ "zone_ref" ],
-			dest: [ "zone_ref" ],
+			src: [ "zone_ref", null, PARSE_LIST ],
+			dest: [ "zone_ref", null, PARSE_LIST ],
 
 			device: [ "device", null, NO_INVERT ],
 			direction: [ "direction" ],
@@ -2557,7 +2557,16 @@ return {
 			return;
 		}
 
-		if (rule.target in ["helper", "notrack"] && (!rule.src || !rule.src.zone)) {
+		if ((data.src != null && !rule.src) || (data.dest != null && !rule.dest)) {
+			this.warn_section(data, "must not specify an empty source or destination zone");
+			return;
+		}
+		else if ((length(rule.src) > 1 && length(filter(rule.src, z => z.any))) ||
+		    (length(rule.dest) > 1 && length(filter(rule.dest, z => z.any)))) {
+			this.warn_section(data, "must not combine '*' with other zones");
+			return;
+		}
+		else if (rule.target in ["helper", "notrack"] && (!rule.src || rule.src[0].any)) {
 			this.warn_section(data, `must specify a source zone for target '${rule.target}'`);
 			return;
 		}
@@ -2729,7 +2738,7 @@ return {
 			push(this.state.rules ||= [], r);
 		};
 
-		for (let proto in rule.proto) {
+		let add_rules = (rule, proto) => {
 			let sip, dip, sports, dports, itypes4, itypes6;
 			let family = rule.family;
 
@@ -2739,7 +2748,7 @@ return {
 
 			if (length(inapplicable)) {
 				this.warn_section(data, `references set '${inapplicable[0].set.name}' with port match which does not apply to protocol '${proto.name}', skipping this protocol`);
-				continue;
+				return;
 			}
 
 			switch (proto.name) {
@@ -2775,7 +2784,7 @@ return {
 
 			if (type(family) == "string") {
 				this.warn_section(data, `${family}, skipping`);
-				continue;
+				return;
 			}
 
 			let has_ipv4_specifics = (length(sip[0]) || length(dip[0]) || length(itypes4) || rule.dscp !== null);
@@ -2828,7 +2837,12 @@ return {
 					}
 				}
 			}
-		}
+		};
+
+		for (let src in (rule.src ?? [ null ]))
+			for (let dest in (rule.dest ?? [ null ]))
+				for (let proto in rule.proto)
+					add_rules({ ...rule, src: src, dest: dest }, proto);
 	},
 
 	parse_redirect: function(data) {

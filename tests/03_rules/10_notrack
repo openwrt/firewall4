@@ -63,6 +63,12 @@ the src and dest options.
 			"name": "Notrack rule #3",
 			"src": "zone3",
 			"target": "NOTRACK"
+		},
+		{
+			".description": "A notrack rule with multiple source zones should end up in the notrack chain of each zone",
+			"name": "Notrack rule #4",
+			"src": [ "zone1", "zone2" ],
+			"target": "NOTRACK"
 		}
 	]
 }
@@ -236,11 +242,15 @@ table inet fw4 {
 	chain notrack_zone1 {
 		meta l4proto tcp counter notrack comment "!fw4: Notrack rule #1"
 		meta l4proto udp counter notrack comment "!fw4: Notrack rule #1"
+		meta l4proto tcp counter notrack comment "!fw4: Notrack rule #4"
+		meta l4proto udp counter notrack comment "!fw4: Notrack rule #4"
 	}
 
 	chain notrack_zone2 {
 		meta l4proto tcp counter notrack comment "!fw4: Notrack rule #2"
 		meta l4proto udp counter notrack comment "!fw4: Notrack rule #2"
+		meta l4proto tcp counter notrack comment "!fw4: Notrack rule #4"
+		meta l4proto udp counter notrack comment "!fw4: Notrack rule #4"
 	}
 
 	chain notrack_zone3 {

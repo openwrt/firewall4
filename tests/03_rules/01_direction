@@ -20,6 +20,18 @@ on src and dest options.
 
 -- File uci/firewall.json --
 {
+	"zone": [
+		{
+			"name": "zone1",
+			"device": [ "eth0" ],
+			"auto_helper": 0
+		},
+		{
+			"name": "zone2",
+			"device": [ "eth1" ],
+			"auto_helper": 0
+		}
+	],
 	"rule": [
 		{
 			".description": "Neither source, nor dest => should result in an output rule",
@@ -40,9 +52,38 @@ on src and dest options.
 			"proto": "any",
 			"src": "*",
 			"dest": "*"
+		},
+		{
+			".description": "Multiple sources, no dest => should result in an input rule per source zone",
+			"proto": "any",
+			"src": [ "zone1", "zone2" ],
+			"target": "accept"
+		},
+		{
+			".description": "Multiple dests, no source => should result in an output rule per dest zone",
+			"proto": "any",
+			"dest": [ "zone1", "zone2" ],
+			"target": "accept"
+		},
+		{
+			".description": "Multiple sources, multiple dests => should result in a forward rule per zone pair",
+			"proto": "any",
+			"src": [ "zone1", "zone2" ],
+			"dest": [ "zone1", "zone2" ],
+			"target": "accept"
+		},
+		{
+			".description": "Source any combined with another zone => should be rejected",
+			"proto": "any",
+			"src": [ "*", "zone1" ],
+			"target": "accept"
 		}
 	]
 }
+-- End --
+
+-- Expect stderr --
+[!] Section @rule[7] must not combine '*' with other zones
 -- End --
 
 -- Expect stdout --
@@ -53,6 +94,12 @@ table inet fw4 {
 	#
 	# Defines
 	#
+
+	define zone1_devices = { "eth0" }
+	define zone1_subnets = {  }
+
+	define zone2_devices = { "eth1" }
+	define zone2_subnets = {  }
 
 
 	#
@@ -73,6 +120,8 @@ table inet fw4 {
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle inbound flows"
 		counter comment "!fw4: @rule[1]"
+		iifname "eth0" jump input_zone1 comment "!fw4: Handle zone1 IPv4/IPv6 input traffic"
+		iifname "eth1" jump input_zone2 comment "!fw4: Handle zone2 IPv4/IPv6 input traffic"
 	}
 
 	chain forward {
@@ -80,6 +129,8 @@ table inet fw4 {
 
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle forwarded flows"
 		counter comment "!fw4: @rule[3]"
+		iifname "eth0" jump forward_zone1 comment "!fw4: Handle zone1 IPv4/IPv6 forward traffic"
+		iifname "eth1" jump forward_zone2 comment "!fw4: Handle zone2 IPv4/IPv6 forward traffic"
 	}
 
 	chain output {
@@ -90,6 +141,8 @@ table inet fw4 {
 		ct state vmap { established : accept, related : accept } comment "!fw4: Handle outbound flows"
 		counter comment "!fw4: @rule[0]"
 		counter comment "!fw4: @rule[2]"
+		oifname "eth0" jump output_zone1 comment "!fw4: Handle zone1 IPv4/IPv6 output traffic"
+		oifname "eth1" jump output_zone2 comment "!fw4: Handle zone2 IPv4/IPv6 output traffic"
 	}
 
 	chain prerouting {
@@ -99,6 +152,62 @@ table inet fw4 {
 	chain handle_reject {
 		meta l4proto tcp reject with tcp reset comment "!fw4: Reject TCP traffic"
 		reject with icmpx type port-unreachable comment "!fw4: Reject any other traffic"
+	}
+
+	chain input_zone1 {
+		counter accept comment "!fw4: @rule[4]"
+		jump drop_from_zone1
+	}
+
+	chain output_zone1 {
+		counter jump accept_to_zone1 comment "!fw4: @rule[5]"
+		jump drop_to_zone1
+	}
+
+	chain forward_zone1 {
+		counter jump accept_to_zone1 comment "!fw4: @rule[6]"
+		counter jump accept_to_zone2 comment "!fw4: @rule[6]"
+		jump drop_to_zone1
+	}
+
+	chain accept_to_zone1 {
+		oifname "eth0" counter accept comment "!fw4: accept zone1 IPv4/IPv6 traffic"
+	}
+
+	chain drop_from_zone1 {
+		iifname "eth0" counter drop comment "!fw4: drop zone1 IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_zone1 {
+		oifname "eth0" counter drop comment "!fw4: drop zone1 IPv4/IPv6 traffic"
+	}
+
+	chain input_zone2 {
+		counter accept comment "!fw4: @rule[4]"
+		jump drop_from_zone2
+	}
+
+	chain output_zone2 {
+		counter jump accept_to_zone2 comment "!fw4: @rule[5]"
+		jump drop_to_zone2
+	}
+
+	chain forward_zone2 {
+		counter jump accept_to_zone1 comment "!fw4: @rule[6]"
+		counter jump accept_to_zone2 comment "!fw4: @rule[6]"
+		jump drop_to_zone2
+	}
+
+	chain accept_to_zone2 {
+		oifname "eth1" counter accept comment "!fw4: accept zone2 IPv4/IPv6 traffic"
+	}
+
+	chain drop_from_zone2 {
+		iifname "eth1" counter drop comment "!fw4: drop zone2 IPv4/IPv6 traffic"
+	}
+
+	chain drop_to_zone2 {
+		oifname "eth1" counter drop comment "!fw4: drop zone2 IPv4/IPv6 traffic"
 	}
 
 
